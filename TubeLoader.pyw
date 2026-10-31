@@ -1,7 +1,7 @@
 """Tube Loader - a tiny local front-end for yt-dlp. Standard library only.
 
 Double-click to run (no console). Starts a loopback-only HTTP server, opens the UI in
-an Edge/Chrome "app" window, keeps yt-dlp / ffmpeg up to date from GitHub, and exits
+a native window, keeps yt-dlp / ffmpeg up to date from GitHub, and exits
 when the window is closed and nothing is downloading.
 """
 from __future__ import annotations
@@ -631,6 +631,7 @@ def active() -> bool:
 
 last_seen = time.time()
 bye_at = 0.0
+window_open = threading.Event()
 PORT = 0
 
 
@@ -815,17 +816,18 @@ class Handler(BaseHTTPRequestHandler):
 
 # ---------------------------------------------------------------- launcher
 
-def open_window(url: str) -> None:
-    pf = [os.environ.get(k, "") for k in ("ProgramFiles(x86)", "ProgramFiles", "LocalAppData")]
-    rels = [r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"]
-    for rel in rels:
-        for base in pf:
-            exe = Path(base) / rel
-            if base and exe.exists():
-                subprocess.Popen([str(exe), f"--app={url}", "--window-size=1040,780", f"--user-data-dir={DATA / 'profile'}",
-                                  "--no-first-run", "--no-default-browser-check"])
-                return
-    webbrowser.open(url)
+def run_window(url: str) -> None:
+    """Native app window (WebView2), blocking until it's closed. Default browser if that isn't available."""
+    window_open.set()
+    try:
+        import webview
+        webview.create_window("Tube Loader", url, width=1040, height=780, min_size=(560, 520))
+        webview.start(gui="edgechromium")
+    except Exception:  # noqa: BLE001 - no pywebview / no WebView2 runtime
+        window_open.clear()
+        webbrowser.open(url)
+        return
+    window_open.clear()
 
 
 def existing_instance() -> str | None:
@@ -845,19 +847,21 @@ def watchdog(server: ThreadingHTTPServer) -> None:
         time.sleep(2)
         now = time.time()
         gone = (bye_at and now - bye_at > 5) or now - last_seen > 180
-        if gone and not active():
+        if gone and not window_open.is_set() and not active():
             INSTANCE_FILE.unlink(missing_ok=True)
             server.shutdown()
             return
 
 
 def main() -> None:
+    global bye_at
     if len(sys.argv) == 4 and sys.argv[1] == "--pick-folder":
         return pick_folder_dialog(sys.argv[2], sys.argv[3])
     DATA.mkdir(parents=True, exist_ok=True)
     BIN.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(DATA / "profile", ignore_errors=True)  # Edge profile from versions before the native window
     if url := existing_instance():
-        return open_window(url)
+        return run_window(url)
     load_cfg()
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
@@ -865,8 +869,12 @@ def main() -> None:
     threading.Thread(target=startup_tools, daemon=True).start()
     threading.Thread(target=worker, daemon=True).start()
     threading.Thread(target=watchdog, args=(server,), daemon=True).start()
-    open_window(f"http://127.0.0.1:{server.server_address[1]}/")
-    server.serve_forever()
+    serving = threading.Thread(target=server.serve_forever)
+    serving.start()
+    run_window(f"http://127.0.0.1:{server.server_address[1]}/")
+    if not bye_at:
+        bye_at = time.time()  # window closed: finish any downloads, then the watchdog stops the server
+    serving.join()
 
 
 if __name__ == "__main__":

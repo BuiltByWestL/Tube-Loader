@@ -6,7 +6,7 @@ that runs on your machine as a single `.exe` with nothing to install, and keeps 
 ## Run
 
 **`TubeLoader.exe`** is one self-contained file: no Python, yt-dlp or ffmpeg install needed. Put it anywhere and double-click it.
-It opens in its own Edge/Chrome app window and quits when you close the window and nothing is downloading.
+It opens in its own native window and quits when you close it and nothing is downloading. (Windows' built-in WebView2 draws the page; the Edge browser, its profiles and sign-in aren't involved. If WebView2 is missing it opens in your default browser.)
 
 On first launch it sets itself up in `%LOCALAPPDATA%\TubeLoader\bin`, installing **only what's missing**:
 
@@ -21,7 +21,7 @@ Settings and remembered artists live in `%LOCALAPPDATA%\TubeLoader\data`.
 ### Build the exe
 
 `build.bat` -> `dist\TubeLoader.exe` (needs Python 3.9+ and internet on the build machine only; installs PyInstaller).
-You can also run from source with `python TubeLoader.pyw`; it then keeps `bin/` and `data/` next to the script.
+You can also run from source with `pip install pywebview` then `python TubeLoader.pyw`; it then keeps `bin/` and `data/` next to the script.
 
 ## Modes
 
