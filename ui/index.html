@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tube Loader</title>
+<link rel="icon" href="/icon.png">
+<style>
+:root {
+  --bg: #fff; --fg: #0a0a0a; --muted: #737373; --line: #e5e5e5; --soft: #f5f5f5; --hover: #ebebeb;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0a0a0a; --fg: #fafafa; --muted: #8a8a8a; --line: #262626; --soft: #141414; --hover: #1f1f1f; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); }
+body { -webkit-font-smoothing: antialiased; }
+.app { max-width: 720px; margin: 0 auto; padding: 20px 20px 48px; }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; }
+.brand svg { width: 26px; height: 26px; }
+.right { display: flex; gap: 8px; align-items: center; }
+.pill { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: none; border-radius: 99px;
+  padding: 5px 12px; font-size: 12px; color: var(--muted); }
+.pill:hover, .icon-btn:hover { background: var(--soft); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg); }
+.dot.busy { background: none; border: 1.5px solid var(--fg); animation: pulse 1s infinite; }
+.dot.bad { background: none; border: 1.5px solid var(--muted); }
+@keyframes pulse { 50% { opacity: .25; } }
+.icon-btn { width: 32px; height: 32px; border: 1px solid var(--line); background: none; border-radius: 50%; display: grid; place-items: center; }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.field { width: 100%; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px; padding: 9px 12px; outline: none; }
+.field:focus { border-color: var(--fg); }
+select.field { appearance: none; padding-right: 30px;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23888' stroke-width='1.5'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center / 10px; }
+.btn { border: 1.5px solid var(--fg); background: var(--fg); color: var(--bg); border-radius: 10px; padding: 9px 18px; font-weight: 600; }
+.btn:hover { opacity: .86; }
+.btn:disabled { opacity: .35; cursor: default; }
+.btn.ghost { background: none; color: var(--fg); border-color: var(--line); font-weight: 500; padding: 8px 14px; }
+.btn.ghost:hover { background: var(--soft); opacity: 1; }
+.btn.big { width: 100%; padding: 13px; font-size: 15px; border-radius: 12px; }
+
+.urlbar { display: flex; gap: 8px; }
+.urlbar .field { font-size: 15px; padding: 12px 14px; border-radius: 12px; border-color: var(--fg); }
+.urlbar .btn { border-radius: 12px; padding: 0 22px; }
+.notice { margin-top: 10px; padding: 10px 14px; border: 1.5px solid var(--fg); border-radius: 10px; font-size: 13px; }
+
+.card { margin-top: 16px; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.preview { display: flex; gap: 14px; align-items: center; }
+.preview img { width: 128px; height: 72px; object-fit: cover; border-radius: 8px; background: var(--soft); flex: none; }
+.preview .t { font-weight: 600; font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.badge { display: inline-block; border: 1px solid var(--fg); border-radius: 99px; padding: 0 8px; font-size: 11px; font-weight: 600; margin-left: 6px; vertical-align: 1px; }
+
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.mode { text-align: left; border: 1.5px solid var(--line); background: none; border-radius: 12px; padding: 10px 12px; }
+.mode b { display: block; font-size: 14px; }
+.mode span { font-size: 12px; color: var(--muted); }
+.mode:hover { background: var(--soft); }
+.mode.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.mode.on span { color: var(--bg); opacity: .65; }
+
+.cmd { display: flex; align-items: center; gap: 8px; margin-top: 12px; background: var(--soft); border-radius: 8px; padding: 7px 10px;
+  font: 12px var(--mono); color: var(--muted); }
+.cmd code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.cmd button { border: 0; background: none; color: var(--fg); font-size: 12px; padding: 0 2px; }
+
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.opts label.l { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.opts .full { grid-column: 1 / -1; }
+.seg { display: flex; border: 1.5px solid var(--line); border-radius: 10px; padding: 2px; }
+.seg button { flex: 1; border: 0; background: none; border-radius: 7px; padding: 6px; }
+.seg button.on { background: var(--fg); color: var(--bg); font-weight: 600; }
+.toggles { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; }
+.sw { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.sw input { display: none; }
+.sw i { width: 32px; height: 18px; border-radius: 99px; background: var(--line); position: relative; transition: .15s; flex: none; }
+.sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); transition: .15s; }
+.sw input:checked + i { background: var(--fg); }
+.sw input:checked + i::after { left: 16px; }
+.sw.off { opacity: .35; pointer-events: none; }
+
+.dest { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.dest .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dest label.l { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.tag { font-size: 11px; font-weight: 600; margin-left: 6px; color: var(--fg); }
+.path { font: 12px var(--mono); color: var(--muted); margin-top: 8px; word-break: break-all; }
+.dest .sw { margin-top: 10px; }
+.go { margin-top: 16px; }
+
+.qhead { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 8px; }
+.qhead h2 { margin: 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.link { border: 0; background: none; color: var(--muted); font-size: 12px; text-decoration: underline; }
+.empty { color: var(--muted); text-align: center; padding: 28px 0; border: 1px dashed var(--line); border-radius: 14px; }
+.job { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.job img { width: 56px; height: 32px; object-fit: cover; border-radius: 5px; background: var(--soft); flex: none; }
+.job .m { flex: 1; min-width: 0; }
+.job .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.job .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job.error .s { color: var(--fg); font-weight: 600; }
+.bar { height: 3px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.bar b { display: block; height: 100%; background: var(--fg); width: 0; transition: width .3s; }
+.bar.busy b { width: 100% !important; background: repeating-linear-gradient(90deg, var(--fg) 0 12px, transparent 12px 24px); animation: slide 1s linear infinite; }
+.bar.done b { transition: none; }
+.job.cancelled, .job.error .bar { opacity: .5; }
+@keyframes slide { to { background-position: 24px 0; } }
+.job .x { border: 0; background: none; width: 28px; height: 28px; border-radius: 50%; color: var(--muted); font-size: 15px; flex: none; }
+.job .x:hover { background: var(--soft); color: var(--fg); }
+
+dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--bg); color: var(--fg); padding: 0; width: min(600px, 94vw); max-height: 90vh; }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+.dlg { padding: 20px; }
+.dlg h3 { margin: 0 0 14px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+.dlg h4 { margin: 22px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pathrow { display: flex; gap: 8px; margin-bottom: 8px; }
+.pathrow .l { width: 70px; flex: none; align-self: center; color: var(--muted); font-size: 12px; }
+.alias { display: grid; grid-template-columns: 1fr 18px 1fr 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.alias .field { padding: 6px 10px; }
+.alias span { text-align: center; color: var(--muted); }
+.trow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 12px; }
+.trow small { color: var(--muted); display: block; }
+.hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 26 26"><rect width="26" height="26" rx="7" fill="currentColor"/><path d="M13 6v9m0 0-4-4m4 4 4-4M7.5 19.5h11" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      Tube Loader
+    </div>
+    <div class="right">
+      <button class="pill" id="pill" title="Tool status"><span class="dot busy" id="pillDot"></span><span id="pillText">Starting…</span></button>
+      <button class="icon-btn" id="gear" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </header>
+
+  <div class="urlbar">
+    <input class="field" id="url" placeholder="Paste a YouTube link…" autofocus spellcheck="false" autocomplete="off">
+    <button class="btn" id="fetchBtn">Fetch</button>
+  </div>
+  <div class="notice" id="err" hidden></div>
+
+  <section class="card" id="card" hidden>
+    <div class="preview">
+      <img id="pvThumb" alt="">
+      <div style="min-width:0">
+        <div class="t" id="pvTitle"></div>
+        <div class="sub" id="pvSub"></div>
+      </div>
+    </div>
+
+    <div class="modes" id="modes">
+      <button class="mode" data-m="song"><b>Song</b><span>MP3 · cover art · artist folder</span></button>
+      <button class="mode" data-m="video"><b>Video</b><span>Best quality MP4</span></button>
+      <button class="mode" data-m="custom"><b>Custom</b><span>Pick format &amp; codecs</span></button>
+    </div>
+
+    <div class="cmd"><code id="cmdText"></code><button id="cmdCopy">Copy</button></div>
+
+    <div id="custom" hidden>
+      <div class="opts">
+        <div class="full"><div class="seg" id="kindSeg"><button data-v="audio">Audio</button><button data-v="video">Video</button></div></div>
+        <div class="g-audio"><label class="l">Format</label>
+          <select class="field" data-k="afmt">
+            <option value="mp3">MP3</option><option value="m4a">M4A (AAC)</option><option value="opus">Opus</option>
+            <option value="vorbis">OGG Vorbis</option><option value="flac">FLAC (lossless)</option>
+            <option value="wav">WAV</option><option value="aac">AAC</option><option value="best">Original (no conversion)</option>
+          </select></div>
+        <div class="g-audio"><label class="l">Quality</label>
+          <select class="field" data-k="aq">
+            <option value="best">Best</option><option value="320K">320 kbps</option><option value="256K">256 kbps</option>
+            <option value="192K">192 kbps</option><option value="128K">128 kbps</option>
+          </select></div>
+        <div class="g-video"><label class="l">Container</label>
+          <select class="field" data-k="container"><option value="mp4">MP4</option><option value="mkv">MKV</option><option value="webm">WebM</option></select></div>
+        <div class="g-video"><label class="l">Max resolution</label>
+          <select class="field" data-k="res">
+            <option value="best">Best available</option><option value="2160">4K (2160p)</option><option value="1440">1440p</option>
+            <option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option>
+          </select></div>
+        <div class="g-video"><label class="l">Video codec</label>
+          <select class="field" data-k="vcodec"><option value="any">Any</option><option value="h264">H.264 (most compatible)</option><option value="vp9">VP9</option><option value="av1">AV1 (smallest)</option></select></div>
+        <div class="g-video"><label class="l">Audio codec</label>
+          <select class="field" data-k="acodec"><option value="any">Any</option><option value="aac">AAC</option><option value="opus">Opus</option></select></div>
+      </div>
+    </div>
+
+    <div class="toggles" id="toggles">
+      <label class="sw" id="swThumb"><input type="checkbox" id="thumb"><i></i>Embed thumbnail</label>
+      <label class="sw g-c" id="swMeta"><input type="checkbox" data-k="meta"><i></i>Embed metadata</label>
+      <label class="sw g-c g-video" id="swRecode"><input type="checkbox" data-k="recode"><i></i>Re-encode to container</label>
+      <label class="sw g-c" id="swSort"><input type="checkbox" data-k="sort"><i></i>Sort into artist folder</label>
+    </div>
+
+    <div class="dest">
+      <div class="row" id="artistRow">
+        <div><label class="l">Artist</label><input class="field" id="artist" spellcheck="false" autocomplete="off"></div>
+        <div><label class="l">Folder <span class="tag" id="folderTag"></span></label>
+          <input class="field" id="folder" list="folderList" spellcheck="false" autocomplete="off"><datalist id="folderList"></datalist></div>
+      </div>
+      <label class="sw" id="swRemember" hidden><input type="checkbox" id="remember" checked><i></i><span id="rememberText"></span></label>
+      <div class="path" id="destPath"></div>
+    </div>
+
+    <div class="go"><button class="btn big" id="goBtn">Download</button></div>
+  </section>
+
+  <div class="qhead"><h2>Downloads</h2><button class="link" id="clearBtn" hidden>Clear finished</button></div>
+  <div id="queue"><div class="empty" id="empty">Nothing yet. Paste a link above.</div></div>
+</div>
+
+<dialog id="settings"><div class="dlg">
+  <h3>Settings <button class="icon-btn" id="closeSettings">✕</button></h3>
+  <h4>Save locations</h4>
+  <div class="pathrow"><span class="l">Music</span><input class="field" id="musicDir"><button class="btn ghost" data-browse="musicDir">Browse</button></div>
+  <div class="pathrow"><span class="l">Videos</span><input class="field" id="videoDir"><button class="btn ghost" data-browse="videoDir">Browse</button></div>
+  <h4>Artist folders</h4>
+  <p class="hint">Downloads by an artist go into their folder. Add a name → folder pair to always send an artist somewhere specific (e.g. Ax and the Hatchetmen → aath).</p>
+  <div id="aliases"></div>
+  <button class="btn ghost" id="addAlias">+ Add artist</button>
+  <h4>Tools</h4>
+  <div class="trow"><div><b>yt-dlp</b><small id="tYt"></small></div><button class="btn ghost" data-upd="ytdlp">Check for updates</button></div>
+  <div class="trow"><div><b>ffmpeg</b><small id="tFf"></small></div><button class="btn ghost" data-upd="ffmpeg">Re-download</button></div>
+  <div class="trow"><div><b>JavaScript runtime</b><small id="tJs"></small></div><button class="btn ghost" data-upd="js">Check</button></div>
+  <div class="trow"><div>Check for yt-dlp updates on launch</div><label class="sw"><input type="checkbox" id="autoUpd"><i></i></label></div>
+</div></dialog>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+async function api(path, body) {
+  const r = await fetch("/api/" + path, { method: body === undefined ? "GET" : "POST",
+    headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function h(tag, props = {}, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids.filter(k => k != null));
+  return e;
+}
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const fmtDur = s => s ? `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ":" : ""}${String(Math.floor(s % 3600 / 60)).padStart(Math.floor(s / 3600) ? 2 : 1, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "";
+
+let cfg = {}, info = null, folderDirty = false, resolved = null;
+const S = { mode: "song", song: { thumb: true }, video: { thumb: false },
+  custom: { kind: "audio", afmt: "mp3", aq: "best", container: "mp4", res: "best", vcodec: "any", acodec: "any", thumb: true, meta: true, recode: false, sort: true } };
+
+const saveUi = debounce(() => api("config", { ui: { S } }).catch(() => {}), 400);
+
+/* ---------- options -> payload ---------- */
+function opts() {
+  if (S.mode === "song") return { mode: "song", thumb: S.song.thumb };
+  if (S.mode === "video") return { mode: "video", thumb: S.video.thumb };
+  return { mode: "custom", ...S.custom, sort_artist: S.custom.sort };
+}
+const sorted = () => S.mode === "song" || (S.mode === "custom" && S.custom.sort);
+const rootKind = () => (S.mode === "song" || (S.mode === "custom" && S.custom.kind === "audio")) ? "audio" : "video";
+
+const updateCmd = debounce(async () => { try { $("#cmdText").textContent = (await api("cmd", { opts: opts() })).cmd; } catch {} }, 60);
+
+function renderOpts() {
+  const c = S.custom;
+  $$(".mode").forEach(b => b.classList.toggle("on", b.dataset.m === S.mode));
+  $("#custom").hidden = S.mode !== "custom";
+  $$("#kindSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === c.kind));
+  $$(".g-audio").forEach(e => e.hidden = c.kind !== "audio");
+  $$(".g-video").forEach(e => e.hidden = c.kind !== "video");
+  $$("[data-k]").forEach(e => { const v = c[e.dataset.k]; e.type === "checkbox" ? e.checked = !!v : e.value = v; });
+  $$(".g-c").forEach(e => e.hidden = S.mode !== "custom" || (e.classList.contains("g-video") && c.kind !== "video"));
+  $("#swSort").hidden = S.mode !== "custom";
+  $("#thumb").checked = S.mode === "song" ? S.song.thumb : S.mode === "video" ? S.video.thumb : c.thumb;
+  $("#swThumb").classList.toggle("off", S.mode === "custom" && c.kind === "audio" && ["wav", "aac"].includes(c.afmt));
+  const q = $('[data-k="aq"]'); q.disabled = !["mp3", "m4a", "aac", "opus", "vorbis"].includes(c.afmt);
+  $("#artistRow").hidden = !sorted();
+  if (!sorted()) $("#swRemember").hidden = true;
+  const playlist = info?.type === "playlist";
+  $("#artist").placeholder = playlist ? "Auto-detect per song" : "";
+  $("#goBtn").textContent = playlist ? `Download ${info.count} items` : "Download";
+  updateCmd(); resolve();
+}
+
+async function resolve() {
+  if (!info) return;
+  const artist = $("#artist").value.trim();
+  try { resolved = await api("resolve", { artist, kind: rootKind() }); } catch { return; }
+  if (!folderDirty && sorted()) $("#folder").value = resolved.folder;
+  $("#folderList").replaceChildren(...resolved.folders.map(f => h("option", { value: f })));
+  $("#folderTag").textContent = !sorted() || !artist ? "" : { alias: "remembered", existing: "existing folder", new: "new folder", auto: "" }[resolved.how];
+  const f = $("#folder").value.trim(), differs = sorted() && artist && f && f.toLowerCase() !== resolved.folder.toLowerCase();
+  $("#swRemember").hidden = !(sorted() && artist && f && (differs || false));
+  $("#rememberText").textContent = `Remember ${artist} → ${f} for future downloads`;
+  $("#destPath").textContent = "Saves to " + resolved.root + (sorted() && f ? "\\" + f : "");
+}
+const resolveSoon = debounce(resolve, 200);
+
+/* ---------- fetch ---------- */
+async function doFetch() {
+  const url = $("#url").value.trim();
+  if (!url) return;
+  $("#err").hidden = true; $("#fetchBtn").disabled = true; $("#fetchBtn").textContent = "Fetching…";
+  try {
+    info = await api("info", { url });
+    folderDirty = false;
+    $("#card").hidden = false;
+    $("#pvThumb").src = info.thumb || "";
+    $("#pvTitle").replaceChildren(info.title, ...(info.type === "playlist" ? [h("span", { className: "badge", textContent: "Playlist" })] : []));
+    $("#pvSub").textContent = info.type === "playlist" ? `${info.count} items${info.uploader ? " · " + info.uploader : ""}` : [info.uploader, fmtDur(info.duration)].filter(Boolean).join(" · ");
+    $("#artist").value = info.type === "video" ? info.artist : "";
+    renderOpts();
+  } catch (e) {
+    info = null; $("#card").hidden = true;
+    $("#err").textContent = e.message; $("#err").hidden = false;
+  }
+  $("#fetchBtn").disabled = false; $("#fetchBtn").textContent = "Fetch";
+}
+$("#fetchBtn").onclick = doFetch;
+$("#url").onkeydown = e => e.key === "Enter" && doFetch();
+$("#url").onpaste = () => setTimeout(() => /^\s*(https?:\/\/|www\.|youtu)/i.test($("#url").value) && doFetch(), 0);
+
+/* ---------- option bindings ---------- */
+$$(".mode").forEach(b => b.onclick = () => { S.mode = b.dataset.m; renderOpts(); saveUi(); });
+$$("#kindSeg button").forEach(b => b.onclick = () => { S.custom.kind = b.dataset.v; S.custom.sort = b.dataset.v === "audio"; renderOpts(); saveUi(); });
+$$("[data-k]").forEach(e => e.onchange = () => { S.custom[e.dataset.k] = e.type === "checkbox" ? e.checked : e.value; renderOpts(); saveUi(); });
+$("#thumb").onchange = e => { (S.mode === "song" ? S.song : S.mode === "video" ? S.video : S.custom).thumb = e.target.checked; renderOpts(); saveUi(); };
+$("#artist").oninput = () => { folderDirty = false; resolveSoon(); };
+$("#folder").oninput = () => { folderDirty = true; resolveSoon(); };
+$("#remember").onchange = () => {};
+$("#cmdCopy").onclick = () => { navigator.clipboard?.writeText($("#cmdText").textContent); $("#cmdCopy").textContent = "Copied"; setTimeout(() => $("#cmdCopy").textContent = "Copy", 1200); };
+
+$("#goBtn").onclick = async () => {
+  if (!info) return;
+  const body = { opts: opts(), artist: sorted() ? $("#artist").value.trim() : "", folder: sorted() ? $("#folder").value.trim() : "",
+    remember: !$("#swRemember").hidden && $("#remember").checked };
+  if (info.type === "playlist") body.entries = info.entries;
+  else Object.assign(body, { url: info.url, title: info.title, thumb: info.thumb, track: info.track });
+  try {
+    await api("add", body);
+    $("#url").value = ""; $("#card").hidden = true; info = null; $("#url").focus();
+    poll();
+  } catch (e) { $("#err").textContent = e.message; $("#err").hidden = false; }
+};
+
+/* ---------- queue ---------- */
+const els = new Map();
+function renderJobs(jobs) {
+  const ids = new Set(jobs.map(j => j.id));
+  for (const [id, el] of els) if (!ids.has(id)) { el.remove(); els.delete(id); }
+  for (const j of jobs.slice().reverse()) {
+    let el = els.get(j.id);
+    if (!el) {
+      el = h("div", { className: "job" }, h("img", { alt: "" }),
+        h("div", { className: "m" }, h("div", { className: "n" }), h("div", { className: "s" }), h("div", { className: "bar" }, h("b"))),
+        h("button", { className: "x" }));
+      el.querySelector(".x").onclick = () => api(el._state === "done" ? "reveal" : "cancel", { id: j.id });
+      els.set(j.id, el); $("#queue").prepend(el);
+    }
+    el._state = j.state;
+    const img = el.querySelector("img"); if (j.thumb && img.getAttribute("src") !== j.thumb) img.src = j.thumb;
+    img.style.visibility = j.thumb ? "visible" : "hidden";
+    el.className = "job " + j.state;
+    el.querySelector(".n").textContent = j.title;
+    const bits = j.state === "running" ? [j.stage, j.speed, j.eta && "ETA " + j.eta] : j.state === "queued" ? ["Queued"] : j.state === "error" ? ["Failed: " + j.error] : [j.stage];
+    el.querySelector(".s").textContent = [...bits.filter(Boolean)].join(" · ") + (j.state !== "error" && j.desc ? "  —  " + j.desc : "");
+    el.querySelector(".s").title = j.state === "done" ? j.file : j.state === "error" ? j.error : "";
+    const bar = el.querySelector(".bar");
+    bar.className = "bar" + (j.state === "running" && j.stage !== "Downloading" ? " busy" : j.state === "done" ? " done" : "");
+    bar.firstChild.style.width = Math.round(j.progress * 100) + "%";
+    const x = el.querySelector(".x");
+    x.textContent = j.state === "done" ? "📁" : ["queued", "running"].includes(j.state) ? "✕" : "";
+    x.title = j.state === "done" ? "Show in folder" : "Cancel";
+    x.style.visibility = x.textContent ? "visible" : "hidden";
+  }
+  $("#empty").hidden = jobs.length > 0;
+  $("#clearBtn").hidden = !jobs.some(j => !["queued", "running"].includes(j.state));
+}
+$("#clearBtn").onclick = () => api("clear", {}).then(poll);
+
+/* ---------- tools pill / settings ---------- */
+let tools = {};
+function renderTools(t) {
+  tools = t;
+  const y = t.ytdlp, busy = [y, t.ffmpeg, t.js].find(x => x.state === "updating" || (x === y && x.state === "checking"));
+  const bad = [y, t.ffmpeg, t.js].find(x => x.state === "missing");
+  $("#pillDot").className = "dot" + (busy ? " busy" : bad ? " bad" : "");
+  $("#pillText").textContent = busy ? (busy.msg || "Working…") + (busy.pct != null ? ` ${busy.pct}%` : "")
+    : bad ? bad.msg || "Setup needed" : `yt-dlp ${y.version || ""}`;
+  const line = (x, extra) => [extra, x.msg].filter(Boolean).join(" · ") + (x.pct != null ? ` (${x.pct}%)` : "");
+  $("#tYt").textContent = line(y, y.version && "v" + y.version);
+  $("#tFf").textContent = line(t.ffmpeg, t.ffmpeg.path);
+  $("#tJs").textContent = line(t.js, t.js.name);
+}
+
+$("#gear").onclick = $("#pill").onclick = async () => {
+  cfg = await api("config");
+  $("#musicDir").value = cfg.music_dir; $("#videoDir").value = cfg.video_dir; $("#autoUpd").checked = cfg.auto_update;
+  renderAliases(); $("#settings").showModal();
+};
+$("#closeSettings").onclick = () => $("#settings").close();
+$("#settings").onclick = e => { if (e.target.id === "settings") e.target.close(); };
+$("#settings").onclose = () => { resolve(); };
+
+const saveCfg = patch => api("config", patch).then(c => { cfg = c; });
+["musicDir", "videoDir"].forEach(id => $("#" + id).onchange = e => saveCfg({ [id === "musicDir" ? "music_dir" : "video_dir"]: e.target.value }).catch(err => alert(err.message)));
+$("#autoUpd").onchange = e => saveCfg({ auto_update: e.target.checked });
+$$("[data-browse]").forEach(b => b.onclick = async () => {
+  const inp = $("#" + b.dataset.browse), { path } = await api("browse", { initial: inp.value });
+  if (path) { inp.value = path; inp.onchange({ target: inp }); }
+});
+$$("[data-upd]").forEach(b => b.onclick = () => { api("update", { what: b.dataset.upd, force: b.dataset.upd === "ffmpeg" }); poll(); });
+
+let rows = [];
+function renderAliases() {
+  rows = Object.entries(cfg.artists || {});
+  $("#aliases").replaceChildren(...rows.map((r, i) => aliasRow(r, i)));
+}
+function aliasRow(r, i) {
+  const a = h("input", { className: "field", value: r[0], placeholder: "Artist name" }), f = h("input", { className: "field", value: r[1], placeholder: "Folder" });
+  const commit = () => { rows[i] = [a.value.trim(), f.value.trim()]; saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) }); };
+  a.onchange = f.onchange = commit;
+  const del = h("button", { className: "x icon-btn", textContent: "✕", title: "Remove", onclick: () => { rows.splice(i, 1); saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) }).then(renderAliases); } });
+  return h("div", { className: "alias" }, a, h("span", { textContent: "→" }), f, del);
+}
+$("#addAlias").onclick = () => { rows.push(["", ""]); $("#aliases").append(aliasRow(["", ""], rows.length - 1)); $("#aliases").lastChild.firstChild.focus(); };
+
+/* ---------- poll / lifecycle ---------- */
+let polling = false;
+async function poll() {
+  if (polling) return; polling = true;
+  try { const s = await api("state"); renderTools(s.tools); renderJobs(s.jobs); } catch {}
+  polling = false;
+}
+setInterval(poll, 900);
+addEventListener("pagehide", () => navigator.sendBeacon("/api/bye?t=" + encodeURIComponent(TOKEN), "{}"));
+
+(async () => {
+  try {
+    cfg = await api("config");
+    const saved = cfg.ui?.S;
+    if (saved) { Object.assign(S.song, saved.song); Object.assign(S.video, saved.video); Object.assign(S.custom, saved.custom); S.mode = saved.mode || "song"; }
+  } catch {}
+  poll();
+})();
+</script>
+</body>
+</html>
