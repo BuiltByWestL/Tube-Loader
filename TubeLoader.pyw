@@ -185,10 +185,10 @@ def build_args(o: dict) -> list[str]:
     """The format-related part of the yt-dlp command line (what the UI shows and runs)."""
     if o["mode"] == "song":
         a = ["-f", "bestaudio", "-x", "--audio-format", "mp3"]
-        return a + (["--embed-thumbnail"] if o["thumb"] else [])
+        return a + (["--embed-thumbnail"] if o["thumb"] else []) + (["--embed-metadata"] if o["meta"] else [])
     if o["mode"] == "video":
         a = ["-S", "res,ext:mp4:m4a", "--recode-video", "mp4"]
-        return a + (["--embed-thumbnail"] if o["thumb"] else [])
+        return a + (["--embed-thumbnail"] if o["thumb"] else []) + (["--embed-metadata"] if o["meta"] else [])
     a: list[str] = []
     if o["kind"] == "audio":
         a += ["-f", "bestaudio/best", "-x", "--audio-format", o["afmt"]]

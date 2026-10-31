@@ -125,7 +125,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 .alias .field { padding: 6px 10px; }
 .alias span { text-align: center; color: var(--muted); }
 .trow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 12px; }
-.trow small { color: var(--muted); display: block; }
+.trow > div:first-child { min-width: 0; }
+.trow small { color: var(--muted); display: block; word-break: break-all; }
 .hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
 </style>
 </head>
@@ -195,7 +196,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
     <div class="toggles" id="toggles">
       <label class="sw" id="swThumb"><input type="checkbox" id="thumb"><i></i>Embed thumbnail</label>
-      <label class="sw g-c" id="swMeta"><input type="checkbox" data-k="meta"><i></i>Embed metadata</label>
+      <label class="sw" id="swMeta"><input type="checkbox" id="meta"><i></i>Embed metadata</label>
       <label class="sw g-c g-video" id="swRecode"><input type="checkbox" data-k="recode"><i></i>Re-encode to container</label>
       <label class="sw g-c" id="swSort"><input type="checkbox" data-k="sort"><i></i>Sort into artist folder</label>
     </div>
@@ -252,15 +253,15 @@ const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = se
 const fmtDur = s => s ? `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ":" : ""}${String(Math.floor(s % 3600 / 60)).padStart(Math.floor(s / 3600) ? 2 : 1, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "";
 
 let cfg = {}, info = null, folderDirty = false, resolved = null;
-const S = { mode: "song", song: { thumb: true }, video: { thumb: false },
+const S = { mode: "song", song: { thumb: true, meta: false }, video: { thumb: false, meta: false },
   custom: { kind: "audio", afmt: "mp3", aq: "best", container: "mp4", res: "best", vcodec: "any", acodec: "any", thumb: true, meta: true, recode: false, sort: true } };
 
 const saveUi = debounce(() => api("config", { ui: { S } }).catch(() => {}), 400);
 
 /* ---------- options -> payload ---------- */
 function opts() {
-  if (S.mode === "song") return { mode: "song", thumb: S.song.thumb };
-  if (S.mode === "video") return { mode: "video", thumb: S.video.thumb };
+  if (S.mode === "song") return { mode: "song", ...S.song };
+  if (S.mode === "video") return { mode: "video", ...S.video };
   return { mode: "custom", ...S.custom, sort_artist: S.custom.sort };
 }
 const sorted = () => S.mode === "song" || (S.mode === "custom" && S.custom.sort);
@@ -278,7 +279,8 @@ function renderOpts() {
   $$("[data-k]").forEach(e => { const v = c[e.dataset.k]; e.type === "checkbox" ? e.checked = !!v : e.value = v; });
   $$(".g-c").forEach(e => e.hidden = S.mode !== "custom" || (e.classList.contains("g-video") && c.kind !== "video"));
   $("#swSort").hidden = S.mode !== "custom";
-  $("#thumb").checked = S.mode === "song" ? S.song.thumb : S.mode === "video" ? S.video.thumb : c.thumb;
+  const cur = S.mode === "song" ? S.song : S.mode === "video" ? S.video : c;
+  $("#thumb").checked = cur.thumb; $("#meta").checked = cur.meta;
   $("#swThumb").classList.toggle("off", S.mode === "custom" && c.kind === "audio" && ["wav", "aac"].includes(c.afmt));
   const q = $('[data-k="aq"]'); q.disabled = !["mp3", "m4a", "aac", "opus", "vorbis"].includes(c.afmt);
   $("#artistRow").hidden = !sorted();
@@ -331,7 +333,7 @@ $("#url").onpaste = () => setTimeout(() => /^\s*(https?:\/\/|www\.|youtu)/i.test
 $$(".mode").forEach(b => b.onclick = () => { S.mode = b.dataset.m; renderOpts(); saveUi(); });
 $$("#kindSeg button").forEach(b => b.onclick = () => { S.custom.kind = b.dataset.v; S.custom.sort = b.dataset.v === "audio"; renderOpts(); saveUi(); });
 $$("[data-k]").forEach(e => e.onchange = () => { S.custom[e.dataset.k] = e.type === "checkbox" ? e.checked : e.value; renderOpts(); saveUi(); });
-$("#thumb").onchange = e => { (S.mode === "song" ? S.song : S.mode === "video" ? S.video : S.custom).thumb = e.target.checked; renderOpts(); saveUi(); };
+for (const k of ["thumb", "meta"]) $("#" + k).onchange = e => { (S.mode === "song" ? S.song : S.mode === "video" ? S.video : S.custom)[k] = e.target.checked; renderOpts(); saveUi(); };
 $("#artist").oninput = () => { folderDirty = false; resolveSoon(); };
 $("#folder").oninput = () => { folderDirty = true; resolveSoon(); };
 $("#remember").onchange = () => {};
