@@ -8,7 +8,7 @@ that runs on your machine as a single `.exe` with nothing to install, and keeps 
 **`TubeLoader.exe`** is one self-contained file: no Python, yt-dlp or ffmpeg install needed. Put it anywhere and double-click it.
 It opens in its own Edge/Chrome app window and quits when you close the window and nothing is downloading.
 
-On first launch it sets itself up in `%LOCALAPPDATA%\TubeLoaderin`, installing **only what's missing**:
+On first launch it sets itself up in `%LOCALAPPDATA%\TubeLoader\bin`, installing **only what's missing**:
 
 | Tool | If already on this PC | Otherwise |
 |---|---|---|
