@@ -1,7 +1,7 @@
 # Tube Loader
 
 A small, fast, local YouTube downloader. A black-and-white front-end for [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-that runs on your machine, needs no installs beyond Python 3, and keeps its own tools up to date.
+that runs on your machine as a single `.exe` with nothing to install, and keeps its own tools up to date.
 
 ## Run
 
