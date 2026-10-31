@@ -35,7 +35,8 @@ YTDLP = LOCAL_YTDLP  # re-pointed by locate_ytdlp() when a copy already exists o
 CONFIG_FILE = DATA / "config.json"
 INSTANCE_FILE = DATA / "instance.json"
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-UA = "TubeLoader/1.0"
+VERSION = "1.1.0"
+UA = f"TubeLoader/{VERSION}"
 TOKEN = secrets.token_urlsafe(24)
 ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
@@ -209,10 +210,12 @@ def build_args(o: dict) -> list[str]:
             sort.append(f"acodec:{o['acodec']}")
         if o["container"] == "mp4":
             sort.append("ext:mp4:m4a")
+        elif o["container"] == "webm":
+            sort.append("ext:webm:webm")
         a += ["-S", ",".join(sort), "--merge-output-format", o["container"]]
         if o["recode"]:
             a += ["--recode-video", o["container"]]
-        if o["thumb"]:
+        if o["thumb"] and o["container"] != "webm":  # webm can't hold cover art
             a.append("--embed-thumbnail")
     if o["meta"]:
         a.append("--embed-metadata")
@@ -523,6 +526,7 @@ def run_job(j: dict) -> None:
         j["folder"] = str(rel)
         stem = clean_stem(title, j["artist"], track).replace("%", "%%")
     dest.mkdir(parents=True, exist_ok=True)
+    j["_dest"] = str(dest)
     j["desc"] = describe(o) + (f" → {j['folder']}" if o["sort_artist"] else "")
     if j["_cancel"]:
         return
@@ -611,6 +615,14 @@ def cancel_job(jid: str) -> None:
         kill_tree(proc)
 
 
+def retry_job(jid: str) -> None:
+    with jobs_lock:
+        j = next((x for x in jobs if x["id"] == jid), None)
+    if j and j["state"] in ("error", "cancelled"):
+        j.update(state="queued", stage="Queued", progress=0, speed="", eta="", error="", file="", _cancel=False)
+        pending.put(j)
+
+
 def active() -> bool:
     return update_busy.is_set() or any(j["state"] in ("queued", "running") for j in jobs)
 
@@ -650,7 +662,7 @@ def pick_folder_dialog(initial: str, out: str) -> None:
 
 
 def api_state(_b):
-    return {"tools": tools, "jobs": [public(j) for j in jobs[-200:]], "busy": active()}
+    return {"tools": tools, "jobs": [public(j) for j in jobs[-200:]], "busy": active(), "version": VERSION}
 
 
 def api_info(b):
@@ -681,6 +693,17 @@ def api_cancel(b):
     return {}
 
 
+def api_retry(b):
+    retry_job(str(b.get("id")))
+    return {}
+
+
+def api_remove(b):
+    with jobs_lock:
+        jobs[:] = [j for j in jobs if j["id"] != b.get("id") or j["state"] in ("queued", "running")]
+    return {}
+
+
 def api_clear(_b):
     with jobs_lock:
         jobs[:] = [j for j in jobs if j["state"] in ("queued", "running")]
@@ -692,10 +715,11 @@ def api_reveal(b):
     if not j:
         return {}
     f = Path(j["file"]) if j["file"] else None
+    folder = f.parent if f else Path(j.get("_dest") or ".")
     if f and f.exists():
         subprocess.Popen(["explorer", "/select,", str(f)])
-    elif f and f.parent.exists():
-        os.startfile(f.parent)  # type: ignore[attr-defined]
+    elif j.get("_dest") and folder.exists():
+        os.startfile(folder)  # type: ignore[attr-defined]
     return {}
 
 
@@ -707,7 +731,7 @@ def api_update(b):
 
 POST_ROUTES = {
     "info": api_info, "resolve": api_resolve, "cmd": api_cmd, "add": api_add, "cancel": api_cancel,
-    "clear": api_clear, "reveal": api_reveal, "update": api_update,
+    "clear": api_clear, "retry": api_retry, "remove": api_remove, "reveal": api_reveal, "update": api_update,
     "config": lambda b: update_cfg(b),
     "browse": lambda b: {"path": pick_folder(str(b.get("initial") or ""))},
     "ping": lambda b: {},
@@ -722,11 +746,11 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
-    def _send(self, code: int, body: bytes, ctype: str = "application/json") -> None:
+    def _send(self, code: int, body: bytes, ctype: str = "application/json", cache: str = "no-store") -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.end_headers()
         self.wfile.write(body)
 
@@ -760,10 +784,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Host", "").split(":")[0] not in ("127.0.0.1", "localhost"):
             return self._send(403, b"forbidden", "text/plain")
         if u.path == "/":
+            theme = ((cfg_snapshot()["ui"].get("S") or {}).get("theme"))
             html = (UI_DIR / "index.html").read_text("utf-8").replace("__TOKEN__", TOKEN)
+            html = html.replace("__THEME__", theme if theme in ("light", "dark") else "auto")
             return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
         if u.path in ("/icon.png", "/favicon.ico"):
             return self._send(200, (UI_DIR / "icon.png").read_bytes(), "image/png")
+        if re.fullmatch(r"/fonts/[\w-]+\.woff2", u.path):
+            f = UI_DIR / u.path[1:]
+            if f.exists():
+                return self._send(200, f.read_bytes(), "font/woff2", "max-age=31536000")
         if u.path == "/api/hello":
             return self._json(200, {"app": "tube-loader"})
         if u.path.startswith("/api/"):
@@ -792,7 +822,7 @@ def open_window(url: str) -> None:
         for base in pf:
             exe = Path(base) / rel
             if base and exe.exists():
-                subprocess.Popen([str(exe), f"--app={url}", "--window-size=780,920", f"--user-data-dir={DATA / 'profile'}",
+                subprocess.Popen([str(exe), f"--app={url}", "--window-size=1040,780", f"--user-data-dir={DATA / 'profile'}",
                                   "--no-first-run", "--no-default-browser-check"])
                 return
     webbrowser.open(url)

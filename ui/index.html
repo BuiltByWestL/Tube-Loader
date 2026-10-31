@@ -1,238 +1,326 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="__THEME__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
 <title>Tube Loader</title>
 <link rel="icon" href="/icon.png">
 <style>
+@font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url(/fonts/plex-mono-latin-400.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 500; font-display: swap; src: url(/fonts/plex-mono-latin-500.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url(/fonts/plex-mono-latin-600.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url(/fonts/plex-mono-latin-ext-400.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plex"; font-weight: 500; font-display: swap; src: url(/fonts/plex-mono-latin-ext-500.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url(/fonts/plex-mono-latin-ext-600.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
 :root {
-  --bg: #fff; --fg: #0a0a0a; --muted: #737373; --line: #e5e5e5; --soft: #f5f5f5; --hover: #ebebeb;
-  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --mono: "Cascadia Mono", Consolas, monospace;
+  --bg: #fff; --fg: #000; --muted: #6f6f6f; --side: #f4f4f4; --btn: #f4f4f4; --btn-hover: #e8e8e8; --line: #e6e6e6;
+  --input: #a9a9b0; --elev: #fff; --shadow: 0 8px 32px rgba(0, 0, 0, .14); --ring: inset 0 0 0 1px rgba(0, 0, 0, .05);
+  --on: #000; --on-fg: #fff; --r: 11px;
+  --font: "Plex", "Cascadia Mono", Consolas, monospace;
+}
+:root[data-theme="dark"] {
+  --bg: #000; --fg: #e6e6e6; --muted: #8d8d8d; --side: #131313; --btn: #191919; --btn-hover: #262626; --line: #232323;
+  --input: #3f3f3f; --elev: #131313; --shadow: 0 8px 32px rgba(0, 0, 0, .7); --ring: inset 0 0 0 1px rgba(255, 255, 255, .05);
+  --on: #e1e1e1; --on-fg: #000;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #0a0a0a; --fg: #fafafa; --muted: #8a8a8a; --line: #262626; --soft: #141414; --hover: #1f1f1f; }
+  :root[data-theme="auto"] {
+    --bg: #000; --fg: #e6e6e6; --muted: #8d8d8d; --side: #131313; --btn: #191919; --btn-hover: #262626; --line: #232323;
+    --input: #3f3f3f; --elev: #131313; --shadow: 0 8px 32px rgba(0, 0, 0, .7); --ring: inset 0 0 0 1px rgba(255, 255, 255, .05);
+    --on: #e1e1e1; --on-fg: #000;
+  }
 }
+
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); }
-body { -webkit-font-smoothing: antialiased; }
-.app { max-width: 720px; margin: 0 auto; padding: 20px 20px 48px; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 400 14px/1.45 var(--font); display: flex; overflow: hidden; -webkit-font-smoothing: antialiased; }
 [hidden] { display: none !important; }
-button, input, select { font: inherit; color: inherit; }
-button { cursor: pointer; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; }
+a { color: inherit; }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+::selection { background: var(--on); color: var(--on-fg); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 9px; border: 3px solid transparent; background-clip: content-box; }
 
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; }
-.brand svg { width: 26px; height: 26px; }
-.right { display: flex; gap: 8px; align-items: center; }
-.pill { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: none; border-radius: 99px;
-  padding: 5px 12px; font-size: 12px; color: var(--muted); }
-.pill:hover, .icon-btn:hover { background: var(--soft); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg); }
-.dot.busy { background: none; border: 1.5px solid var(--fg); animation: pulse 1s infinite; }
-.dot.bad { background: none; border: 1.5px solid var(--muted); }
-@keyframes pulse { 50% { opacity: .25; } }
-.icon-btn { width: 32px; height: 32px; border: 1px solid var(--line); background: none; border-radius: 50%; display: grid; place-items: center; }
-.icon-btn svg { width: 16px; height: 16px; }
+/* sidebar */
+aside { width: 88px; flex: none; background: var(--side); display: flex; flex-direction: column; align-items: stretch; padding: 12px 6px; gap: 4px; }
+.logo { height: 44px; display: grid; place-items: center; margin-bottom: 8px; }
+.logo svg { width: 28px; height: 28px; stroke-width: 2.2; }
+.tab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 2px 8px; border-radius: var(--r); font-size: 11.5px; color: var(--fg); transition: background .12s; }
+.tab:hover { background: var(--btn-hover); }
+.tab.on { background: var(--on); color: var(--on-fg); font-weight: 500; }
+.tab svg.i { width: 21px; height: 21px; }
+.spacer { flex: 1; }
 
-.field { width: 100%; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px; padding: 9px 12px; outline: none; }
-.field:focus { border-color: var(--fg); }
-select.field { appearance: none; padding-right: 30px;
-  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23888' stroke-width='1.5'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center / 10px; }
-.btn { border: 1.5px solid var(--fg); background: var(--fg); color: var(--bg); border-radius: 10px; padding: 9px 18px; font-weight: 600; }
-.btn:hover { opacity: .86; }
-.btn:disabled { opacity: .35; cursor: default; }
-.btn.ghost { background: none; color: var(--fg); border-color: var(--line); font-weight: 500; padding: 8px 14px; }
-.btn.ghost:hover { background: var(--soft); opacity: 1; }
-.btn.big { width: 100%; padding: 13px; font-size: 15px; border-radius: 12px; }
+/* main */
+main { flex: 1; min-width: 0; position: relative; height: 100%; }
+.page { position: absolute; inset: 0; overflow-y: auto; }
+.center { position: relative; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 72px 24px 56px; }
+.center.top { justify-content: flex-start; }
+.stack { width: 100%; max-width: 640px; }
+.hero { display: flex; justify-content: center; margin-bottom: 26px; }
+.hero svg { width: 92px; height: 92px; stroke-width: 1.5; }
+.top .hero { display: none; }
 
-.urlbar { display: flex; gap: 8px; }
-.urlbar .field { font-size: 15px; padding: 12px 14px; border-radius: 12px; border-color: var(--fg); }
-.urlbar .btn { border-radius: 12px; padding: 0 22px; }
-.notice { margin-top: 10px; padding: 10px 14px; border: 1.5px solid var(--fg); border-radius: 10px; font-size: 13px; }
+.linkbox { position: relative; display: flex; align-items: center; height: 42px; border-radius: var(--r); box-shadow: 0 0 0 2px var(--input) inset; transition: box-shadow .12s; }
+.linkbox:focus-within, .linkbox.full { box-shadow: 0 0 0 2px var(--fg) inset; }
+.linkbox .lead { width: 38px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.linkbox .lead svg.i { width: 18px; height: 18px; }
+.linkbox input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; font-size: 14.5px; }
+.linkbox input::placeholder { color: var(--muted); }
+.gobtn { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 0 var(--r) var(--r) 0; flex: none; }
+.gobtn svg.i { stroke-width: 2.2; width: 18px; height: 18px; }
+.gobtn:hover { background: var(--btn); }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--fg); animation: rot .7s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
 
-.card { margin-top: 16px; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
-.preview { display: flex; gap: 14px; align-items: center; }
-.preview img { width: 128px; height: 72px; object-fit: cover; border-radius: 8px; background: var(--soft); flex: none; }
-.preview .t { font-weight: 600; font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.switch { display: flex; border-radius: var(--r); overflow: hidden; box-shadow: var(--ring); background: var(--btn); }
+.switch button { display: flex; align-items: center; gap: 7px; padding: 0 13px; height: 36px; border-right: 1px solid var(--line); font-weight: 500; transition: background .12s; }
+.switch button:last-child { border-right: 0; }
+.switch button:hover { background: var(--btn-hover); }
+.switch button.on { background: var(--on); color: var(--on-fg); }
+.switch svg.i { width: 17px; height: 17px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; height: 36px; border-radius: var(--r); background: var(--btn); box-shadow: var(--ring); font-weight: 500; white-space: nowrap; transition: background .12s; }
+.btn:hover { background: var(--btn-hover); }
+.btn svg.i { width: 17px; height: 17px; }
+.btn.solid { background: var(--on); color: var(--on-fg); }
+.btn.solid:hover { opacity: .85; background: var(--on); }
+.btn.wide { width: 100%; height: 42px; margin-top: 14px; }
+.btn.sm { height: 32px; padding: 0 11px; font-size: 13px; }
+
+.notice { margin-top: 10px; padding: 10px 13px; border-radius: var(--r); box-shadow: 0 0 0 1.5px var(--fg) inset; font-size: 13px; overflow-wrap: anywhere; }
+
+/* chips */
+.rows { margin-top: 12px; display: grid; gap: 10px; }
+.chiprow { display: grid; grid-template-columns: 102px 1fr; align-items: center; gap: 8px; }
+.chiprow > span { color: var(--muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { height: 29px; padding: 0 10px; border-radius: 8px; background: var(--btn); box-shadow: var(--ring); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: background .12s; }
+.chip:hover { background: var(--btn-hover); }
+.chip.on { background: var(--on); color: var(--on-fg); }
+.chip:disabled { opacity: .35; cursor: default; background: var(--btn); color: var(--fg); }
+.chip svg.i { width: 13px; height: 13px; stroke-width: 2.6; }
+
+/* preview */
+.card { margin-top: 14px; border-radius: 14px; background: var(--side); padding: 14px; box-shadow: var(--ring); animation: rise .18s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+.preview { display: flex; gap: 12px; align-items: center; }
+.preview img { width: 112px; height: 63px; object-fit: cover; border-radius: 8px; background: var(--btn-hover); flex: none; }
+.preview .t { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
-.badge { display: inline-block; border: 1px solid var(--fg); border-radius: 99px; padding: 0 8px; font-size: 11px; font-weight: 600; margin-left: 6px; vertical-align: 1px; }
+.flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.dest { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.lbl { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12.5px; margin-bottom: 4px; }
+.lbl b { font-weight: 500; color: var(--fg); }
+.field { width: 100%; height: 36px; border: 0; border-radius: 9px; background: var(--bg); box-shadow: 0 0 0 1.5px var(--line) inset; padding: 0 11px; outline: 0; transition: box-shadow .12s; }
+.field:focus { box-shadow: 0 0 0 1.5px var(--fg) inset; }
+.field::placeholder { color: var(--muted); }
+.meta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.meta span { min-width: 0; overflow-wrap: anywhere; }
+.link { color: var(--muted); font-size: 12.5px; text-decoration: underline; text-underline-offset: 2px; flex: none; }
+.link:hover { color: var(--fg); }
+.cmd { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.cmd code { flex: 1; min-width: 0; font: inherit; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.iconbtn { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.iconbtn:hover { background: var(--btn-hover); color: var(--fg); }
+.iconbtn svg.i { width: 15px; height: 15px; }
 
-.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
-.mode { text-align: left; border: 1.5px solid var(--line); background: none; border-radius: 12px; padding: 10px 12px; }
-.mode b { display: block; font-size: 14px; }
-.mode span { font-size: 12px; color: var(--muted); }
-.mode:hover { background: var(--soft); }
-.mode.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
-.mode.on span { color: var(--bg); opacity: .65; }
+.status { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 12.5px; color: var(--muted); pointer-events: none; }
+.status button { pointer-events: auto; text-decoration: underline; text-underline-offset: 2px; }
+.status button:hover { color: var(--fg); }
 
-.cmd { display: flex; align-items: center; gap: 8px; margin-top: 12px; background: var(--soft); border-radius: 8px; padding: 7px 10px;
-  font: 12px var(--mono); color: var(--muted); }
-.cmd code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-.cmd button { border: 0; background: none; color: var(--fg); font-size: 12px; padding: 0 2px; }
-
-.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
-.opts label.l { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.opts .full { grid-column: 1 / -1; }
-.seg { display: flex; border: 1.5px solid var(--line); border-radius: 10px; padding: 2px; }
-.seg button { flex: 1; border: 0; background: none; border-radius: 7px; padding: 6px; }
-.seg button.on { background: var(--fg); color: var(--bg); font-weight: 600; }
-.toggles { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; }
-.sw { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-.sw input { display: none; }
-.sw i { width: 32px; height: 18px; border-radius: 99px; background: var(--line); position: relative; transition: .15s; flex: none; }
-.sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); transition: .15s; }
-.sw input:checked + i { background: var(--fg); }
-.sw input:checked + i::after { left: 16px; }
-.sw.off { opacity: .35; pointer-events: none; }
-
-.dest { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-.dest .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.dest label.l { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.tag { font-size: 11px; font-weight: 600; margin-left: 6px; color: var(--fg); }
-.path { font: 12px var(--mono); color: var(--muted); margin-top: 8px; word-break: break-all; }
-.dest .sw { margin-top: 10px; }
-.go { margin-top: 16px; }
-
-.qhead { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 8px; }
-.qhead h2 { margin: 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.link { border: 0; background: none; color: var(--muted); font-size: 12px; text-decoration: underline; }
-.empty { color: var(--muted); text-align: center; padding: 28px 0; border: 1px dashed var(--line); border-radius: 14px; }
-.job { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.job img { width: 56px; height: 32px; object-fit: cover; border-radius: 5px; background: var(--soft); flex: none; }
+/* queue */
+.qbtn { position: absolute; top: 12px; right: 14px; z-index: 5; width: 44px; height: 44px; border-radius: 50%; background: var(--btn); box-shadow: var(--ring); display: grid; place-items: center; }
+.qbtn:hover { background: var(--btn-hover); }
+.qbtn svg.i { width: 18px; height: 18px; }
+.qbtn .ringbox { position: absolute; inset: 0; width: 44px; height: 44px; transform: rotate(-90deg); fill: none; stroke-width: 2.5; }
+.qbtn .track { stroke: var(--line); }
+.qbtn .fill { stroke: var(--fg); stroke-linecap: round; stroke-dasharray: 119.4; stroke-dashoffset: 119.4; transition: stroke-dashoffset .3s; }
+.qbtn .count { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--on); color: var(--on-fg); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+.queue { position: absolute; top: 64px; right: 14px; z-index: 5; width: min(420px, calc(100% - 28px)); max-height: calc(100% - 84px); display: flex; flex-direction: column; background: var(--elev); border-radius: 14px; box-shadow: var(--shadow), var(--ring); animation: rise .14s ease-out; }
+.qhead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; font-weight: 500; }
+.qlist { overflow-y: auto; padding: 0 6px 6px; }
+.qempty { padding: 26px 14px 30px; text-align: center; color: var(--muted); font-size: 13px; }
+.job { display: flex; gap: 10px; align-items: center; padding: 9px 8px; border-radius: 10px; }
+.job + .job { margin-top: 1px; }
+.job:hover { background: var(--btn); }
+.job img { width: 48px; height: 27px; object-fit: cover; border-radius: 5px; background: var(--btn-hover); flex: none; }
 .job .m { flex: 1; min-width: 0; }
-.job .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.job .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.job.error .s { color: var(--fg); font-weight: 600; }
-.bar { height: 3px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
-.bar b { display: block; height: 100%; background: var(--fg); width: 0; transition: width .3s; }
-.bar.busy b { width: 100% !important; background: repeating-linear-gradient(90deg, var(--fg) 0 12px, transparent 12px 24px); animation: slide 1s linear infinite; }
-.bar.done b { transition: none; }
-.job.cancelled, .job.error .bar { opacity: .5; }
-@keyframes slide { to { background-position: 24px 0; } }
-.job .x { border: 0; background: none; width: 28px; height: 28px; border-radius: 50%; color: var(--muted); font-size: 15px; flex: none; }
-.job .x:hover { background: var(--soft); color: var(--fg); }
+.job .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 500; }
+.job .s { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job.error .s { color: var(--fg); }
+.bar { height: 3px; background: var(--line); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.bar b { display: block; height: 100%; background: var(--fg); width: 0; border-radius: 3px; transition: width .3s; }
+.bar.busy b { width: 34% !important; transition: none; animation: slide 1s ease-in-out infinite alternate; }
+@keyframes slide { from { margin-left: 0; } to { margin-left: 66%; } }
+.job .acts { display: flex; flex: none; }
 
-dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--bg); color: var(--fg); padding: 0; width: min(600px, 94vw); max-height: 90vh; }
-dialog::backdrop { background: rgba(0,0,0,.4); }
-.dlg { padding: 20px; }
-.dlg h3 { margin: 0 0 14px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
-.dlg h4 { margin: 22px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.pathrow { display: flex; gap: 8px; margin-bottom: 8px; }
-.pathrow .l { width: 70px; flex: none; align-self: center; color: var(--muted); font-size: 12px; }
-.alias { display: grid; grid-template-columns: 1fr 18px 1fr 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
-.alias .field { padding: 6px 10px; }
-.alias span { text-align: center; color: var(--muted); }
-.trow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 12px; }
-.trow > div:first-child { min-width: 0; }
-.trow small { color: var(--muted); display: block; word-break: break-all; }
-.hint { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 12px; max-width: min(520px, calc(100% - 28px)); padding: 9px 9px 9px 14px; border-radius: var(--r); background: var(--on); color: var(--on-fg); font-size: 13px; box-shadow: var(--shadow); animation: rise .18s ease-out; }
+.toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.toast button { flex: none; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+.toast button:hover { background: rgba(127, 127, 127, .3); }
+
+/* settings-style pages */
+.doc { max-width: 640px; margin: 0 auto; padding: 22px 24px 40px; }
+.doc h1 { font-size: 20px; font-weight: 600; margin: 4px 0 18px; padding-right: 50px; }
+.group { background: var(--side); box-shadow: var(--ring); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.group h2 { font-size: 13.5px; font-weight: 600; margin: 0 0 10px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: -4px 0 12px; }
+.pathrow { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; margin-top: 8px; }
+.pathrow > span { color: var(--muted); font-size: 12.5px; }
+.trow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.trow:first-of-type { border-top: 0; padding-top: 0; }
+.trow > div { min-width: 0; }
+.trow small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.alias { display: grid; grid-template-columns: 1fr 16px 1fr 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.alias > span { color: var(--muted); text-align: center; }
+.about p { margin: 0 0 8px; }
+.about .mark { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.about .mark svg { width: 44px; height: 44px; stroke-width: 1.9; }
+.about .mark b { font-size: 20px; font-weight: 600; display: block; line-height: 1.2; }
+
+@media (max-width: 620px) {
+  body { flex-direction: column-reverse; }
+  aside { width: 100%; flex-direction: row; padding: 6px; }
+  .logo, .spacer { display: none; }
+  .tab { flex: 1; }
+  main { height: auto; flex: 1; }
+  .dest { grid-template-columns: 1fr; }
+  .chiprow { grid-template-columns: 1fr; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="brand">
-      <svg viewBox="0 0 26 26"><rect width="26" height="26" rx="7" fill="currentColor"/><path d="M13 6v9m0 0-4-4m4 4 4-4M7.5 19.5h11" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-      Tube Loader
-    </div>
-    <div class="right">
-      <button class="pill" id="pill" title="Tool status"><span class="dot busy" id="pillDot"></span><span id="pillText">Starting…</span></button>
-      <button class="icon-btn" id="gear" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
-    </div>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-mark" viewBox="0 0 24 24"><path d="m5 5 7 6.5L19 5M5 12.5l7 6.5 7-6.5"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-artists" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.5v5M12 8v.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-go" viewBox="0 0 24 24"><path d="m5 6 6 6-6 6M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-song" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></symbol>
+  <symbol id="i-custom" viewBox="0 0 24 24"><path d="M12 4v3m0 10v3M4 12h3m10 0h3M6.3 6.3l2.1 2.1m7.2 7.2 2.1 2.1m0-11.4-2.1 2.1m-7.2 7.2-2.1 2.1"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="5.5" y="5" width="13" height="16" rx="2.5"/><path d="M9 5V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V5M9 11h6M9 15h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.500a2 2 0 0 0 2 2h2.500"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.500a2 2 0 0 1 2-2h4l2 2.500h7a2 2 0 0 1 2 2v7.500a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.500 12a7.500 7.500 0 1 1-2.200-5.300M19.500 4v4h-4"/></symbol>
+</defs></svg>
 
-  <div class="urlbar">
-    <input class="field" id="url" placeholder="Paste a YouTube link…" autofocus spellcheck="false" autocomplete="off">
-    <button class="btn" id="fetchBtn">Fetch</button>
+<aside>
+  <div class="logo" title="Tube Loader"><svg class="i"><use href="#i-mark"/></svg></div>
+  <button class="tab on" data-page="save"><svg class="i"><use href="#i-save"/></svg>save</button>
+  <button class="tab" data-page="artists"><svg class="i"><use href="#i-artists"/></svg>artists</button>
+  <div class="spacer"></div>
+  <button class="tab" data-page="settings"><svg class="i"><use href="#i-settings"/></svg>settings</button>
+  <button class="tab" data-page="about"><svg class="i"><use href="#i-about"/></svg>about</button>
+</aside>
+
+<main>
+  <button class="qbtn" id="qbtn" title="Downloads" aria-label="Downloads" aria-expanded="false">
+    <svg class="ringbox" viewBox="0 0 44 44" hidden id="ring"><circle class="track" cx="22" cy="22" r="19"/><circle class="fill" id="ringFill" cx="22" cy="22" r="19"/></svg>
+    <svg class="i"><use href="#i-save"/></svg>
+    <span class="count" id="qcount" hidden></span>
+  </button>
+  <div class="queue" id="queue" hidden>
+    <div class="qhead"><span>downloads</span><button class="link" id="clearBtn" hidden>clear finished</button></div>
+    <div class="qlist" id="qlist"><div class="qempty" id="qempty">nothing here yet</div></div>
   </div>
-  <div class="notice" id="err" hidden></div>
 
-  <section class="card" id="card" hidden>
-    <div class="preview">
-      <img id="pvThumb" alt="">
-      <div style="min-width:0">
-        <div class="t" id="pvTitle"></div>
-        <div class="sub" id="pvSub"></div>
+  <section class="page" data-page="save">
+    <div class="center" id="center">
+      <div class="stack">
+        <div class="hero"><svg class="i"><use href="#i-mark"/></svg></div>
+        <div class="linkbox" id="linkbox">
+          <span class="lead" id="lead"><svg class="i"><use href="#i-link"/></svg></span>
+          <input id="url" placeholder="paste the link here" aria-label="Video link" autofocus spellcheck="false" autocomplete="off">
+          <button class="gobtn" id="goArrow" title="Fetch" aria-label="Fetch" hidden><svg class="i"><use href="#i-go"/></svg></button>
+        </div>
+        <div class="actions">
+          <div class="switch" id="modes" role="group" aria-label="Download mode">
+            <button data-m="song"><svg class="i"><use href="#i-song"/></svg>song</button>
+            <button data-m="video"><svg class="i"><use href="#i-video"/></svg>video</button>
+            <button data-m="custom"><svg class="i"><use href="#i-custom"/></svg>custom</button>
+          </div>
+          <button class="btn" id="pasteBtn"><svg class="i"><use href="#i-paste"/></svg>paste</button>
+        </div>
+        <div class="rows" id="customRows" hidden></div>
+        <div class="notice" id="err" role="alert" hidden></div>
+
+        <div class="card" id="card" hidden>
+          <div class="preview">
+            <img id="pvThumb" alt="">
+            <div style="min-width:0"><div class="t" id="pvTitle"></div><div class="sub" id="pvSub"></div></div>
+          </div>
+          <div class="flags" id="flags"></div>
+          <div class="dest" id="dest">
+            <div><div class="lbl"><span>artist</span></div><input class="field" id="artist" spellcheck="false" autocomplete="off"></div>
+            <div><div class="lbl"><span>folder</span><b id="folderTag"></b></div>
+              <input class="field" id="folder" list="folderList" spellcheck="false" autocomplete="off"><datalist id="folderList"></datalist></div>
+          </div>
+          <div class="flags" id="rememberRow" hidden><button class="chip on" id="remember" aria-pressed="true"><svg class="i"><use href="#i-check"/></svg><span id="rememberText"></span></button></div>
+          <div class="meta"><span id="destPath"></span><button class="link" id="changeDest">change</button></div>
+          <button class="btn solid wide" id="goBtn"><svg class="i"><use href="#i-save"/></svg><span id="goText">download</span></button>
+          <div class="cmd"><code id="cmdText"></code><button class="iconbtn" id="cmdCopy" title="Copy command" aria-label="Copy command"><svg class="i"><use href="#i-copy"/></svg></button></div>
+        </div>
       </div>
+      <div class="status"><button id="status">starting…</button></div>
     </div>
-
-    <div class="modes" id="modes">
-      <button class="mode" data-m="song"><b>Song</b><span>MP3 · cover art · artist folder</span></button>
-      <button class="mode" data-m="video"><b>Video</b><span>Best quality MP4</span></button>
-      <button class="mode" data-m="custom"><b>Custom</b><span>Pick format &amp; codecs</span></button>
-    </div>
-
-    <div class="cmd"><code id="cmdText"></code><button id="cmdCopy">Copy</button></div>
-
-    <div id="custom" hidden>
-      <div class="opts">
-        <div class="full"><div class="seg" id="kindSeg"><button data-v="audio">Audio</button><button data-v="video">Video</button></div></div>
-        <div class="g-audio"><label class="l">Format</label>
-          <select class="field" data-k="afmt">
-            <option value="mp3">MP3</option><option value="m4a">M4A (AAC)</option><option value="opus">Opus</option>
-            <option value="vorbis">OGG Vorbis</option><option value="flac">FLAC (lossless)</option>
-            <option value="wav">WAV</option><option value="aac">AAC</option><option value="best">Original (no conversion)</option>
-          </select></div>
-        <div class="g-audio"><label class="l">Quality</label>
-          <select class="field" data-k="aq">
-            <option value="best">Best</option><option value="320K">320 kbps</option><option value="256K">256 kbps</option>
-            <option value="192K">192 kbps</option><option value="128K">128 kbps</option>
-          </select></div>
-        <div class="g-video"><label class="l">Container</label>
-          <select class="field" data-k="container"><option value="mp4">MP4</option><option value="mkv">MKV</option><option value="webm">WebM</option></select></div>
-        <div class="g-video"><label class="l">Max resolution</label>
-          <select class="field" data-k="res">
-            <option value="best">Best available</option><option value="2160">4K (2160p)</option><option value="1440">1440p</option>
-            <option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option>
-          </select></div>
-        <div class="g-video"><label class="l">Video codec</label>
-          <select class="field" data-k="vcodec"><option value="any">Any</option><option value="h264">H.264 (most compatible)</option><option value="vp9">VP9</option><option value="av1">AV1 (smallest)</option></select></div>
-        <div class="g-video"><label class="l">Audio codec</label>
-          <select class="field" data-k="acodec"><option value="any">Any</option><option value="aac">AAC</option><option value="opus">Opus</option></select></div>
-      </div>
-    </div>
-
-    <div class="toggles" id="toggles">
-      <label class="sw" id="swThumb"><input type="checkbox" id="thumb"><i></i>Embed thumbnail</label>
-      <label class="sw" id="swMeta"><input type="checkbox" id="meta"><i></i>Embed metadata</label>
-      <label class="sw g-c g-video" id="swRecode"><input type="checkbox" data-k="recode"><i></i>Re-encode to container</label>
-      <label class="sw g-c" id="swSort"><input type="checkbox" data-k="sort"><i></i>Sort into artist folder</label>
-    </div>
-
-    <div class="dest">
-      <div class="row" id="artistRow">
-        <div><label class="l">Artist</label><input class="field" id="artist" spellcheck="false" autocomplete="off"></div>
-        <div><label class="l">Folder <span class="tag" id="folderTag"></span></label>
-          <input class="field" id="folder" list="folderList" spellcheck="false" autocomplete="off"><datalist id="folderList"></datalist></div>
-      </div>
-      <label class="sw" id="swRemember" hidden><input type="checkbox" id="remember" checked><i></i><span id="rememberText"></span></label>
-      <div class="path" id="destPath"></div>
-    </div>
-
-    <div class="go"><button class="btn big" id="goBtn">Download</button></div>
   </section>
 
-  <div class="qhead"><h2>Downloads</h2><button class="link" id="clearBtn" hidden>Clear finished</button></div>
-  <div id="queue"><div class="empty" id="empty">Nothing yet. Paste a link above.</div></div>
-</div>
+  <section class="page" data-page="artists" hidden><div class="doc">
+    <h1>artists</h1>
+    <div class="group">
+      <h2>artist folders</h2>
+      <p class="hint">always send an artist to a specific folder inside your music folder. the ones you remember while downloading show up here too.</p>
+      <div id="aliases"></div>
+      <div class="qempty" id="aliasEmpty" hidden>no artists yet. e.g. ax and the hatchetmen → aath</div>
+      <button class="btn sm" id="addAlias">add artist</button>
+    </div>
+  </div></section>
 
-<dialog id="settings"><div class="dlg">
-  <h3>Settings <button class="icon-btn" id="closeSettings">✕</button></h3>
-  <h4>Save locations</h4>
-  <div class="pathrow"><span class="l">Music</span><input class="field" id="musicDir"><button class="btn ghost" data-browse="musicDir">Browse</button></div>
-  <div class="pathrow"><span class="l">Videos</span><input class="field" id="videoDir"><button class="btn ghost" data-browse="videoDir">Browse</button></div>
-  <h4>Artist folders</h4>
-  <p class="hint">Downloads by an artist go into their folder. Add a name → folder pair to always send an artist somewhere specific (e.g. Ax and the Hatchetmen → aath).</p>
-  <div id="aliases"></div>
-  <button class="btn ghost" id="addAlias">+ Add artist</button>
-  <h4>Tools</h4>
-  <div class="trow"><div><b>yt-dlp</b><small id="tYt"></small></div><button class="btn ghost" data-upd="ytdlp">Check for updates</button></div>
-  <div class="trow"><div><b>ffmpeg</b><small id="tFf"></small></div><button class="btn ghost" data-upd="ffmpeg">Re-download</button></div>
-  <div class="trow"><div><b>JavaScript runtime</b><small id="tJs"></small></div><button class="btn ghost" data-upd="js">Check</button></div>
-  <div class="trow"><div>Check for yt-dlp updates on launch</div><label class="sw"><input type="checkbox" id="autoUpd"><i></i></label></div>
-</div></dialog>
+  <section class="page" data-page="settings" hidden><div class="doc">
+    <h1>settings</h1>
+    <div class="group"><h2>theme</h2><div class="chips" id="themeChips"></div></div>
+    <div class="group">
+      <h2>save locations</h2>
+      <div class="pathrow"><span>music</span><input class="field" id="musicDir" aria-label="Music folder" spellcheck="false"><button class="btn sm" data-browse="musicDir">browse</button></div>
+      <div class="pathrow"><span>videos</span><input class="field" id="videoDir" aria-label="Videos folder" spellcheck="false"><button class="btn sm" data-browse="videoDir">browse</button></div>
+    </div>
+    <div class="group">
+      <h2>tools</h2>
+      <div class="trow"><div>yt-dlp<small id="tYt"></small></div><button class="btn sm" data-upd="ytdlp">check for updates</button></div>
+      <div class="trow"><div>ffmpeg<small id="tFf"></small></div></div>
+      <div class="trow"><div>javascript runtime<small id="tJs"></small></div></div>
+      <div class="trow"><div>check for yt-dlp updates on launch</div><button class="chip" id="autoUpd"></button></div>
+    </div>
+  </div></section>
+
+  <section class="page" data-page="about" hidden><div class="doc about">
+    <div class="mark" style="padding-right:50px"><svg class="i"><use href="#i-mark"/></svg><div><b>tube loader</b><span class="sub" id="aboutVer"></span></div></div>
+    <div class="group">
+      <h2>how it works</h2>
+      <p>paste a link, pick a mode, download. everything runs on this computer: nothing goes through a server, and there are no accounts or tracking.</p>
+      <p>ctrl+v anywhere pastes a link and fetches it. enter starts the download.</p>
+    </div>
+    <div class="group">
+      <h2>built on</h2>
+      <p><a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noreferrer">yt-dlp</a> does the downloading and <a href="https://ffmpeg.org" target="_blank" rel="noreferrer">ffmpeg</a> does the converting.</p>
+      <p>set in <a href="https://github.com/IBM/plex" target="_blank" rel="noreferrer">ibm plex mono</a>. look inspired by <a href="https://cobalt.tools" target="_blank" rel="noreferrer">cobalt</a>.</p>
+    </div>
+  </div></section>
+
+  <div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastBtn">show</button></div>
+</main>
 
 <script>
 const TOKEN = "__TOKEN__";
@@ -249,208 +337,342 @@ function h(tag, props = {}, ...kids) {
   e.append(...kids.filter(k => k != null));
   return e;
 }
+function ic(name) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"), u = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  s.setAttribute("class", "i"); u.setAttribute("href", "#i-" + name); s.append(u);
+  return s;
+}
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
-const fmtDur = s => s ? `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ":" : ""}${String(Math.floor(s % 3600 / 60)).padStart(Math.floor(s / 3600) ? 2 : 1, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "";
+const pad = n => String(n).padStart(2, "0");
+const fmtDur = s => { if (!s) return ""; const H = Math.floor(s / 3600), M = Math.floor(s % 3600 / 60), R = Math.floor(s % 60); return H ? `${H}:${pad(M)}:${pad(R)}` : `${M}:${pad(R)}`; };
+const home = p => p.replace(/^[A-Za-z]:[\\/]Users[\\/][^\\/]+/, "~");
 
-let cfg = {}, info = null, folderDirty = false, resolved = null;
-const S = { mode: "song", song: { thumb: true, meta: false }, video: { thumb: false, meta: false },
+let cfg = {}, info = null, fetchedUrl = "", folderDirty = false, resolved = null, fetchSeq = 0, resolveSeq = 0;
+const S = { theme: "auto", mode: "song", song: { thumb: true, meta: false }, video: { thumb: false, meta: false },
   custom: { kind: "audio", afmt: "mp3", aq: "best", container: "mp4", res: "best", vcodec: "any", acodec: "any", thumb: true, meta: true, recode: false, sort: true } };
-
 const saveUi = debounce(() => api("config", { ui: { S } }).catch(() => {}), 400);
+const current = () => S.mode === "song" ? S.song : S.mode === "video" ? S.video : S.custom;
 
-/* ---------- options -> payload ---------- */
+/* ---------- theme ---------- */
+function applyTheme() {
+  document.documentElement.dataset.theme = S.theme;
+  $('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  $("#themeChips").replaceChildren(...["auto", "light", "dark"].map(t =>
+    h("button", { className: "chip" + (S.theme === t ? " on" : ""), textContent: t, onclick: () => { S.theme = t; applyTheme(); saveUi(); } })));
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+/* ---------- navigation ---------- */
+async function go(page) {
+  $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.page === page));
+  $$(".page").forEach(p => p.hidden = p.dataset.page !== page);
+  closeQueue();
+  if (page === "save") { resolve(); return; }
+  cfg = await api("config").catch(() => cfg);
+  if (page === "artists") renderAliases();
+  if (page === "settings") {
+    $("#musicDir").value = cfg.music_dir; $("#videoDir").value = cfg.video_dir;
+    $("#autoUpd").textContent = cfg.auto_update ? "on" : "off"; $("#autoUpd").classList.toggle("on", cfg.auto_update);
+  }
+}
+$$(".tab").forEach(t => t.onclick = () => go(t.dataset.page));
+$("#changeDest").onclick = () => go("settings");
+$("#status").onclick = () => go("settings");
+
+/* ---------- options ---------- */
+const CHIPS = {
+  audio: [["afmt", "format", [["mp3", "mp3"], ["m4a", "m4a"], ["opus", "opus"], ["vorbis", "ogg"], ["flac", "flac"], ["wav", "wav"], ["aac", "aac"], ["best", "original"]]],
+    ["aq", "quality", [["best", "best"], ["320K", "320k"], ["256K", "256k"], ["192K", "192k"], ["128K", "128k"]]]],
+  video: [["container", "format", [["mp4", "mp4"], ["mkv", "mkv"], ["webm", "webm"]]],
+    ["res", "max quality", [["best", "best"], ["2160", "4k"], ["1440", "1440p"], ["1080", "1080p"], ["720", "720p"], ["480", "480p"], ["360", "360p"]]],
+    ["vcodec", "video codec", [["any", "any"], ["h264", "h264"], ["vp9", "vp9"], ["av1", "av1"]]],
+    ["acodec", "audio codec", [["any", "any"], ["aac", "aac"], ["opus", "opus"]]]],
+};
+const LOSSY = ["mp3", "m4a", "aac", "opus", "vorbis"];
+function chipOff(k, v) {
+  const c = S.custom;
+  if (k === "aq") return !LOSSY.includes(c.afmt) && v !== "best";
+  if (c.container === "webm") return (k === "vcodec" && v === "h264") || (k === "acodec" && v === "aac");
+  return false;
+}
 function opts() {
-  if (S.mode === "song") return { mode: "song", ...S.song };
-  if (S.mode === "video") return { mode: "video", ...S.video };
-  return { mode: "custom", ...S.custom, sort_artist: S.custom.sort };
+  if (S.mode === "custom") return { mode: "custom", ...S.custom, sort_artist: S.custom.sort };
+  return { mode: S.mode, ...current() };
 }
 const sorted = () => S.mode === "song" || (S.mode === "custom" && S.custom.sort);
 const rootKind = () => (S.mode === "song" || (S.mode === "custom" && S.custom.kind === "audio")) ? "audio" : "video";
-
 const updateCmd = debounce(async () => { try { $("#cmdText").textContent = (await api("cmd", { opts: opts() })).cmd; } catch {} }, 60);
+const changed = () => { renderOpts(); saveUi(); };
 
+function flag(label, on, click, off) {
+  return h("button", { className: "chip" + (on ? " on" : ""), disabled: !!off, ariaPressed: String(!!on), onclick: click }, on ? ic("check") : null, label);
+}
 function renderOpts() {
-  const c = S.custom;
-  $$(".mode").forEach(b => b.classList.toggle("on", b.dataset.m === S.mode));
-  $("#custom").hidden = S.mode !== "custom";
-  $$("#kindSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === c.kind));
-  $$(".g-audio").forEach(e => e.hidden = c.kind !== "audio");
-  $$(".g-video").forEach(e => e.hidden = c.kind !== "video");
-  $$("[data-k]").forEach(e => { const v = c[e.dataset.k]; e.type === "checkbox" ? e.checked = !!v : e.value = v; });
-  $$(".g-c").forEach(e => e.hidden = S.mode !== "custom" || (e.classList.contains("g-video") && c.kind !== "video"));
-  $("#swSort").hidden = S.mode !== "custom";
-  const cur = S.mode === "song" ? S.song : S.mode === "video" ? S.video : c;
-  $("#thumb").checked = cur.thumb; $("#meta").checked = cur.meta;
-  $("#swThumb").classList.toggle("off", S.mode === "custom" && c.kind === "audio" && ["wav", "aac"].includes(c.afmt));
-  const q = $('[data-k="aq"]'); q.disabled = !["mp3", "m4a", "aac", "opus", "vorbis"].includes(c.afmt);
-  $("#artistRow").hidden = !sorted();
-  if (!sorted()) $("#swRemember").hidden = true;
+  const c = S.custom, cur = current(), custom = S.mode === "custom";
+  $$("#modes button").forEach(b => { b.classList.toggle("on", b.dataset.m === S.mode); b.setAttribute("aria-pressed", b.dataset.m === S.mode); });
+
+  $("#customRows").hidden = !custom;
+  if (custom) {
+    if (chipOff("vcodec", c.vcodec)) c.vcodec = "any";
+    if (chipOff("acodec", c.acodec)) c.acodec = "any";
+    if (chipOff("aq", c.aq)) c.aq = "best";
+    const type = h("div", { className: "chiprow" }, h("span", { textContent: "type" }), h("div", { className: "chips" },
+      ...["audio", "video"].map(v => h("button", { className: "chip" + (c.kind === v ? " on" : ""), textContent: v,
+        onclick: () => { c.kind = v; c.sort = v === "audio"; changed(); } }))));
+    $("#customRows").replaceChildren(type, ...CHIPS[c.kind].map(([k, label, vals]) =>
+      h("div", { className: "chiprow" }, h("span", { textContent: label }), h("div", { className: "chips" },
+        ...vals.map(([v, t]) => h("button", { className: "chip" + (c[k] === v ? " on" : ""), textContent: t, disabled: chipOff(k, v),
+          onclick: () => { c[k] = v; changed(); } }))))));
+  }
+
+  const noCover = custom && (c.kind === "audio" ? ["wav", "aac"].includes(c.afmt) : c.container === "webm");
+  const toggle = k => () => { cur[k] = !cur[k]; changed(); };
+  $("#flags").replaceChildren(...[
+    flag("thumbnail", cur.thumb && !noCover, toggle("thumb"), noCover),
+    flag("metadata", cur.meta, toggle("meta")),
+    custom && c.kind === "video" && flag("re-encode", c.recode, toggle("recode")),
+    custom && flag("artist folder", c.sort, toggle("sort")),
+  ].filter(Boolean));
+
+  $("#dest").hidden = !sorted();
   const playlist = info?.type === "playlist";
-  $("#artist").placeholder = playlist ? "Auto-detect per song" : "";
-  $("#goBtn").textContent = playlist ? `Download ${info.count} items` : "Download";
+  $("#artist").placeholder = playlist ? "auto-detect per song" : "";
+  $("#goText").textContent = playlist ? `download ${info.count} items` : "download";
   updateCmd(); resolve();
 }
 
 async function resolve() {
   if (!info) return;
-  const artist = $("#artist").value.trim();
-  try { resolved = await api("resolve", { artist, kind: rootKind() }); } catch { return; }
-  if (!folderDirty && sorted()) $("#folder").value = resolved.folder;
-  $("#folderList").replaceChildren(...resolved.folders.map(f => h("option", { value: f })));
-  $("#folderTag").textContent = !sorted() || !artist ? "" : { alias: "remembered", existing: "existing folder", new: "new folder", auto: "" }[resolved.how];
-  const f = $("#folder").value.trim(), differs = sorted() && artist && f && f.toLowerCase() !== resolved.folder.toLowerCase();
-  $("#swRemember").hidden = !(sorted() && artist && f && (differs || false));
-  $("#rememberText").textContent = `Remember ${artist} → ${f} for future downloads`;
-  $("#destPath").textContent = "Saves to " + resolved.root + (sorted() && f ? "\\" + f : "");
+  const seq = ++resolveSeq, artist = $("#artist").value.trim();
+  let r;
+  try { r = await api("resolve", { artist, kind: rootKind() }); } catch { return; }
+  if (seq !== resolveSeq) return;
+  resolved = r;
+  if (!folderDirty) $("#folder").value = sorted() ? r.folder : "";
+  $("#folderList").replaceChildren(...r.folders.map(f => h("option", { value: f })));
+  const f = $("#folder").value.trim(), differs = sorted() && artist && f && f.toLowerCase() !== r.folder.toLowerCase();
+  $("#folderTag").textContent = !sorted() || !artist ? "" : differs ? "custom" : { alias: "remembered", existing: "exists", new: "new", auto: "" }[r.how];
+  $("#rememberRow").hidden = !differs;
+  $("#rememberText").textContent = `remember ${artist} → ${f}`;
+  const path = r.root + (sorted() && f ? "\\" + f : "");
+  $("#destPath").textContent = "saves to " + home(path) + (sorted() && !f ? "\\<artist>" : ""); $("#destPath").title = path;
 }
 const resolveSoon = debounce(resolve, 200);
 
 /* ---------- fetch ---------- */
+function setBusy(b) {
+  $("#lead").replaceChildren(b ? h("span", { className: "spin" }) : ic("link"));
+  $("#linkbox").classList.toggle("full", b);
+}
+function showError(msg) { $("#err").textContent = msg.replace(/^./, c => c.toLowerCase()); $("#err").hidden = false; }
+function hideCard() { info = null; fetchedUrl = ""; $("#card").hidden = true; $("#center").classList.remove("top"); }
+function syncGo() {
+  const ready = !!$("#url").value.trim();
+  $("#goArrow").hidden = !ready;
+  $("#goArrow").title = info ? "Download" : "Fetch";
+}
 async function doFetch() {
   const url = $("#url").value.trim();
   if (!url) return;
-  $("#err").hidden = true; $("#fetchBtn").disabled = true; $("#fetchBtn").textContent = "Fetching…";
+  const seq = ++fetchSeq;
+  $("#err").hidden = true; setBusy(true);
   try {
-    info = await api("info", { url });
-    folderDirty = false;
-    $("#card").hidden = false;
-    $("#pvThumb").src = info.thumb || "";
-    $("#pvTitle").replaceChildren(info.title, ...(info.type === "playlist" ? [h("span", { className: "badge", textContent: "Playlist" })] : []));
-    $("#pvSub").textContent = info.type === "playlist" ? `${info.count} items${info.uploader ? " · " + info.uploader : ""}` : [info.uploader, fmtDur(info.duration)].filter(Boolean).join(" · ");
+    const r = await api("info", { url });
+    if (seq !== fetchSeq) return;
+    info = r; fetchedUrl = url; folderDirty = false;
+    $("#pvThumb").src = info.thumb || ""; $("#pvThumb").style.visibility = info.thumb ? "visible" : "hidden";
+    $("#pvTitle").textContent = info.title;
+    $("#pvSub").textContent = info.type === "playlist" ? ["playlist", `${info.count} items`, info.uploader].filter(Boolean).join(" · ") : [info.uploader, fmtDur(info.duration)].filter(Boolean).join(" · ");
     $("#artist").value = info.type === "video" ? info.artist : "";
-    renderOpts();
+    $("#folder").value = "";
+    $("#card").hidden = false; $("#center").classList.add("top");
+    renderOpts(); syncGo();
   } catch (e) {
-    info = null; $("#card").hidden = true;
-    $("#err").textContent = e.message; $("#err").hidden = false;
+    if (seq !== fetchSeq) return;
+    hideCard(); showError(e.message);
   }
-  $("#fetchBtn").disabled = false; $("#fetchBtn").textContent = "Fetch";
+  setBusy(false);
 }
-$("#fetchBtn").onclick = doFetch;
-$("#url").onkeydown = e => e.key === "Enter" && doFetch();
-$("#url").onpaste = () => setTimeout(() => /^\s*(https?:\/\/|www\.|youtu)/i.test($("#url").value) && doFetch(), 0);
+const submit = () => (info && $("#url").value.trim() === fetchedUrl) ? download() : doFetch();
+$("#goArrow").onclick = submit;
+$("#url").onkeydown = e => { if (e.key === "Enter") submit(); };
+$("#url").oninput = () => {
+  if ($("#url").value.trim() !== fetchedUrl) { fetchSeq++; setBusy(false); hideCard(); $("#err").hidden = true; }
+  syncGo();
+};
+const looksLikeLink = t => /^\s*(https?:\/\/|www\.|youtu|m\.youtube|music\.youtube)/i.test(t);
+function useLink(text) { $("#url").value = text.trim(); $("#url").oninput(); doFetch(); }
+$("#url").onpaste = () => setTimeout(() => looksLikeLink($("#url").value) && doFetch(), 0);
+$("#pasteBtn").onclick = async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (t.trim()) useLink(t); else showError("your clipboard is empty.");
+  } catch { $("#url").focus(); showError("press ctrl+v to paste your link."); }
+};
+document.addEventListener("paste", e => {
+  if (e.target.matches?.("input") || $('[data-page="save"].page').hidden) return;
+  const t = e.clipboardData?.getData("text") || "";
+  if (looksLikeLink(t)) useLink(t);
+});
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", e => {
+  e.preventDefault();
+  const t = e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text") || "";
+  if (looksLikeLink(t)) { go("save"); useLink(t.split("\n")[0]); }
+});
 
-/* ---------- option bindings ---------- */
-$$(".mode").forEach(b => b.onclick = () => { S.mode = b.dataset.m; renderOpts(); saveUi(); });
-$$("#kindSeg button").forEach(b => b.onclick = () => { S.custom.kind = b.dataset.v; S.custom.sort = b.dataset.v === "audio"; renderOpts(); saveUi(); });
-$$("[data-k]").forEach(e => e.onchange = () => { S.custom[e.dataset.k] = e.type === "checkbox" ? e.checked : e.value; renderOpts(); saveUi(); });
-for (const k of ["thumb", "meta"]) $("#" + k).onchange = e => { (S.mode === "song" ? S.song : S.mode === "video" ? S.video : S.custom)[k] = e.target.checked; renderOpts(); saveUi(); };
+/* ---------- bindings ---------- */
+$$("#modes button").forEach(b => b.onclick = () => { S.mode = b.dataset.m; changed(); });
 $("#artist").oninput = () => { folderDirty = false; resolveSoon(); };
 $("#folder").oninput = () => { folderDirty = true; resolveSoon(); };
-$("#remember").onchange = () => {};
-$("#cmdCopy").onclick = () => { navigator.clipboard?.writeText($("#cmdText").textContent); $("#cmdCopy").textContent = "Copied"; setTimeout(() => $("#cmdCopy").textContent = "Copy", 1200); };
+$("#artist").onkeydown = $("#folder").onkeydown = e => { if (e.key === "Enter") download(); };
+$("#remember").onclick = e => {
+  const b = e.currentTarget, on = !b.classList.contains("on");
+  b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+  b.firstElementChild.style.display = on ? "" : "none";
+};
+$("#cmdCopy").onclick = () => { navigator.clipboard?.writeText($("#cmdText").textContent).then(() => toast("command copied")); };
+$("#goBtn").onclick = () => download();
 
-$("#goBtn").onclick = async () => {
+async function download() {
   if (!info) return;
   const body = { opts: opts(), artist: sorted() ? $("#artist").value.trim() : "", folder: sorted() ? $("#folder").value.trim() : "",
-    remember: !$("#swRemember").hidden && $("#remember").checked };
+    remember: !$("#rememberRow").hidden && $("#remember").classList.contains("on") };
   if (info.type === "playlist") body.entries = info.entries;
   else Object.assign(body, { url: info.url, title: info.title, thumb: info.thumb, track: info.track });
   try {
     await api("add", body);
-    $("#url").value = ""; $("#card").hidden = true; info = null; $("#url").focus();
-    poll();
-  } catch (e) { $("#err").textContent = e.message; $("#err").hidden = false; }
-};
+    $("#url").value = ""; hideCard(); syncGo(); $("#url").focus();
+    await poll(); openQueue();
+  } catch (e) { showError(e.message); }
+}
 
 /* ---------- queue ---------- */
-const els = new Map();
+const els = new Map(), seen = new Map();
+let firstPoll = true;
+function act(name, title, fn) { return h("button", { className: "iconbtn", title, ariaLabel: title, onclick: fn }, ic(name)); }
 function renderJobs(jobs) {
   const ids = new Set(jobs.map(j => j.id));
-  for (const [id, el] of els) if (!ids.has(id)) { el.remove(); els.delete(id); }
-  for (const j of jobs.slice().reverse()) {
+  for (const [id, el] of els) if (!ids.has(id)) { el.remove(); els.delete(id); seen.delete(id); }
+  for (const j of jobs) {
     let el = els.get(j.id);
     if (!el) {
       el = h("div", { className: "job" }, h("img", { alt: "" }),
         h("div", { className: "m" }, h("div", { className: "n" }), h("div", { className: "s" }), h("div", { className: "bar" }, h("b"))),
-        h("button", { className: "x" }));
-      el.querySelector(".x").onclick = () => api(el._state === "done" ? "reveal" : "cancel", { id: j.id });
-      els.set(j.id, el); $("#queue").prepend(el);
+        h("div", { className: "acts" }));
+      els.set(j.id, el); $("#qlist").prepend(el);
     }
-    el._state = j.state;
-    const img = el.querySelector("img"); if (j.thumb && img.getAttribute("src") !== j.thumb) img.src = j.thumb;
+    const prev = seen.get(j.id);
+    if (prev !== j.state) {
+      el.className = "job " + j.state;
+      const a = el.querySelector(".acts"), run = (p) => () => api(p, { id: j.id }).then(poll);
+      if (j.state === "done") a.replaceChildren(act("folder", "Show in folder", run("reveal")), act("x", "Remove", run("remove")));
+      else if (j.state === "queued" || j.state === "running") a.replaceChildren(act("x", "Cancel", run("cancel")));
+      else a.replaceChildren(act("retry", "Try again", run("retry")), act("x", "Remove", run("remove")));
+      if (!firstPoll && prev && j.state === "done") toast("saved " + j.title, () => api("reveal", { id: j.id }));
+      if (!firstPoll && prev && j.state === "error") { toast("failed: " + j.title, openQueue, "details"); }
+      seen.set(j.id, j.state);
+    }
+    const img = el.querySelector("img");
+    if (j.thumb && img.getAttribute("src") !== j.thumb) img.src = j.thumb;
     img.style.visibility = j.thumb ? "visible" : "hidden";
-    el.className = "job " + j.state;
-    el.querySelector(".n").textContent = j.title;
-    const bits = j.state === "running" ? [j.stage, j.speed, j.eta && "ETA " + j.eta] : j.state === "queued" ? ["Queued"] : j.state === "error" ? ["Failed: " + j.error] : [j.stage];
-    el.querySelector(".s").textContent = [...bits.filter(Boolean)].join(" · ") + (j.state !== "error" && j.desc ? "  —  " + j.desc : "");
-    el.querySelector(".s").title = j.state === "done" ? j.file : j.state === "error" ? j.error : "";
+    el.querySelector(".n").textContent = j.title; el.querySelector(".n").title = j.title;
+    const st = j.stage.toLowerCase();
+    const line = j.state === "running" ? [st, j.speed, j.eta && "eta " + j.eta] : j.state === "error" ? [j.error] : [st, j.desc];
+    const s = el.querySelector(".s");
+    s.textContent = line.filter(Boolean).join(" · "); s.title = j.state === "done" ? j.file : j.state === "error" ? j.error : "";
     const bar = el.querySelector(".bar");
-    bar.className = "bar" + (j.state === "running" && j.stage !== "Downloading" ? " busy" : j.state === "done" ? " done" : "");
+    bar.hidden = j.state !== "running";
+    bar.className = "bar" + (j.state === "running" && j.stage !== "Downloading" ? " busy" : "");
     bar.firstChild.style.width = Math.round(j.progress * 100) + "%";
-    const x = el.querySelector(".x");
-    x.textContent = j.state === "done" ? "📁" : ["queued", "running"].includes(j.state) ? "✕" : "";
-    x.title = j.state === "done" ? "Show in folder" : "Cancel";
-    x.style.visibility = x.textContent ? "visible" : "hidden";
   }
-  $("#empty").hidden = jobs.length > 0;
-  $("#clearBtn").hidden = !jobs.some(j => !["queued", "running"].includes(j.state));
+  const act2 = jobs.filter(j => j.state === "running" || j.state === "queued");
+  $("#qempty").hidden = jobs.length > 0;
+  $("#clearBtn").hidden = jobs.length === act2.length;
+  $("#qcount").hidden = !act2.length; $("#qcount").textContent = act2.length;
+  $("#ring").toggleAttribute("hidden", !act2.length);
+  const p = act2.length ? act2.reduce((n, j) => n + j.progress, 0) / act2.length : 0;
+  $("#ringFill").style.strokeDashoffset = 119.4 * (1 - p);
+  firstPoll = false;
 }
-$("#clearBtn").onclick = () => api("clear", {}).then(poll);
+function openQueue() { $("#queue").hidden = false; $("#qbtn").setAttribute("aria-expanded", "true"); }
+function closeQueue() { $("#queue").hidden = true; $("#qbtn").setAttribute("aria-expanded", "false"); }
+$("#qbtn").onclick = e => { e.stopPropagation(); $("#queue").hidden ? openQueue() : closeQueue(); };
+document.addEventListener("click", e => { if (!e.target.closest("#queue, #toast")) closeQueue(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeQueue(); });
+$("#clearBtn").onclick = e => { e.stopPropagation(); api("clear", {}).then(poll); };
 
-/* ---------- tools pill / settings ---------- */
-let tools = {};
-function renderTools(t) {
-  tools = t;
-  const y = t.ytdlp, busy = [y, t.ffmpeg, t.js].find(x => x.state === "updating" || (x === y && x.state === "checking"));
-  const bad = [y, t.ffmpeg, t.js].find(x => x.state === "missing");
-  $("#pillDot").className = "dot" + (busy ? " busy" : bad ? " bad" : "");
-  $("#pillText").textContent = busy ? (busy.msg || "Working…") + (busy.pct != null ? ` ${busy.pct}%` : "")
-    : bad ? bad.msg || "Setup needed" : `yt-dlp ${y.version || ""}`;
-  const line = (x, extra) => [extra, x.msg].filter(Boolean).join(" · ") + (x.pct != null ? ` (${x.pct}%)` : "");
-  $("#tYt").textContent = line(y, y.version && "v" + y.version);
-  $("#tFf").textContent = line(t.ffmpeg, t.ffmpeg.path);
-  $("#tJs").textContent = line(t.js, t.js.name);
+let toastT;
+function toast(text, action, label = "show") {
+  $("#toastText").textContent = text; $("#toastText").title = text;
+  $("#toastBtn").hidden = !action; $("#toastBtn").textContent = label; $("#toastBtn").onclick = () => { $("#toast").hidden = true; action?.(); };
+  $("#toast").hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => $("#toast").hidden = true, action ? 6000 : 1800);
 }
 
-$("#gear").onclick = $("#pill").onclick = async () => {
-  cfg = await api("config");
-  $("#musicDir").value = cfg.music_dir; $("#videoDir").value = cfg.video_dir; $("#autoUpd").checked = cfg.auto_update;
-  renderAliases(); $("#settings").showModal();
-};
-$("#closeSettings").onclick = () => $("#settings").close();
-$("#settings").onclick = e => { if (e.target.id === "settings") e.target.close(); };
-$("#settings").onclose = () => { resolve(); };
+/* ---------- tools ---------- */
+function renderTools(t, version) {
+  const y = t.ytdlp, all = [y, t.js, t.ffmpeg];
+  const busy = all.find(x => x.state === "updating") || (y.state === "checking" ? y : null);
+  const bad = all.find(x => x.state === "missing");
+  $("#status").textContent = busy ? `setting up: ${(busy.msg || "working").toLowerCase()}${busy.pct != null ? ` ${busy.pct}%` : ""}`
+    : bad ? (bad.msg || "setup needed").toLowerCase() : `yt-dlp ${y.version || ""}`;
+  const line = (x, first) => [first, x.msg?.toLowerCase()].filter(Boolean).join(" · ") + (x.pct != null ? ` (${x.pct}%)` : "");
+  $("#tYt").textContent = line(y, y.version);
+  $("#tFf").textContent = line(t.ffmpeg, t.ffmpeg.path && home(t.ffmpeg.path));
+  $("#tJs").textContent = line(t.js);
+  $("#aboutVer").textContent = `version ${version}`;
+}
 
+/* ---------- settings ---------- */
 const saveCfg = patch => api("config", patch).then(c => { cfg = c; });
-["musicDir", "videoDir"].forEach(id => $("#" + id).onchange = e => saveCfg({ [id === "musicDir" ? "music_dir" : "video_dir"]: e.target.value }).catch(err => alert(err.message)));
-$("#autoUpd").onchange = e => saveCfg({ auto_update: e.target.checked });
+["musicDir", "videoDir"].forEach(id => $("#" + id).onchange = e => saveCfg({ [id === "musicDir" ? "music_dir" : "video_dir"]: e.target.value }).then(() => toast("saved")).catch(err => toast(err.message)));
+$("#autoUpd").onclick = async e => { const b = e.currentTarget; await saveCfg({ auto_update: !cfg.auto_update }); b.textContent = cfg.auto_update ? "on" : "off"; b.classList.toggle("on", cfg.auto_update); };
 $$("[data-browse]").forEach(b => b.onclick = async () => {
   const inp = $("#" + b.dataset.browse), { path } = await api("browse", { initial: inp.value });
   if (path) { inp.value = path; inp.onchange({ target: inp }); }
 });
-$$("[data-upd]").forEach(b => b.onclick = () => { api("update", { what: b.dataset.upd, force: b.dataset.upd === "ffmpeg" }); poll(); });
+$$("[data-upd]").forEach(b => b.onclick = () => { api("update", { what: b.dataset.upd }).then(poll); });
 
 let rows = [];
+const saveRows = () => saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) });
 function renderAliases() {
   rows = Object.entries(cfg.artists || {});
-  $("#aliases").replaceChildren(...rows.map((r, i) => aliasRow(r, i)));
+  $("#aliases").replaceChildren(...rows.map(aliasRow));
+  $("#aliasEmpty").hidden = rows.length > 0;
 }
-function aliasRow(r, i) {
-  const a = h("input", { className: "field", value: r[0], placeholder: "Artist name" }), f = h("input", { className: "field", value: r[1], placeholder: "Folder" });
-  const commit = () => { rows[i] = [a.value.trim(), f.value.trim()]; saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) }); };
-  a.onchange = f.onchange = commit;
-  const del = h("button", { className: "x icon-btn", textContent: "✕", title: "Remove", onclick: () => { rows.splice(i, 1); saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) }).then(renderAliases); } });
-  return h("div", { className: "alias" }, a, h("span", { textContent: "→" }), f, del);
+function aliasRow(r) {
+  const a = h("input", { className: "field", value: r[0], placeholder: "artist", spellcheck: false, ariaLabel: "Artist" });
+  const f = h("input", { className: "field", value: r[1], placeholder: "folder", spellcheck: false, ariaLabel: "Folder" });
+  a.onchange = f.onchange = () => { r[0] = a.value.trim(); r[1] = f.value.trim(); saveRows(); };
+  return h("div", { className: "alias" }, a, h("span", { textContent: "→" }), f,
+    act("x", "Remove", () => { rows.splice(rows.indexOf(r), 1); saveRows().then(renderAliases); }));
 }
-$("#addAlias").onclick = () => { rows.push(["", ""]); $("#aliases").append(aliasRow(["", ""], rows.length - 1)); $("#aliases").lastChild.firstChild.focus(); };
+$("#addAlias").onclick = () => {
+  const r = ["", ""]; rows.push(r); $("#aliasEmpty").hidden = true;
+  $("#aliases").append(aliasRow(r)); $("#aliases").lastChild.firstChild.focus();
+};
 
 /* ---------- poll / lifecycle ---------- */
 let polling = false;
 async function poll() {
   if (polling) return; polling = true;
-  try { const s = await api("state"); renderTools(s.tools); renderJobs(s.jobs); } catch {}
+  try { const s = await api("state"); renderTools(s.tools, s.version); renderJobs(s.jobs); } catch {}
   polling = false;
 }
-setInterval(poll, 900);
+setInterval(poll, 800);
 addEventListener("pagehide", () => navigator.sendBeacon("/api/bye?t=" + encodeURIComponent(TOKEN), "{}"));
 
 (async () => {
   try {
     cfg = await api("config");
     const saved = cfg.ui?.S;
-    if (saved) { Object.assign(S.song, saved.song); Object.assign(S.video, saved.video); Object.assign(S.custom, saved.custom); S.mode = saved.mode || "song"; }
+    if (saved) {
+      Object.assign(S.song, saved.song); Object.assign(S.video, saved.video); Object.assign(S.custom, saved.custom);
+      S.mode = saved.mode || "song"; S.theme = saved.theme || "auto";
+    }
   } catch {}
-  poll();
+  applyTheme(); renderOpts(); poll();
 })();
 </script>
 </body>

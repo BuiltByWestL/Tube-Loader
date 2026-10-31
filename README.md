@@ -31,7 +31,8 @@ You can also run from source with `python TubeLoader.pyw`; it then keeps `bin/` 
 | **Video** | `-S res,ext:mp4:m4a --recode-video mp4` |
 | **Custom** | audio (mp3, m4a, opus, ogg, flac, wav, aac, original) or video (mp4/mkv/webm, max resolution, video/audio codec preference, optional re-encode) |
 
-"Embed thumbnail" and "Embed metadata" are switches on every mode. The exact command is always shown (and copyable).
+"Thumbnail" and "metadata" are switches on every mode. The exact command is always shown (and copyable).
+Formats that can't hold cover art (wav, aac, webm) turn the thumbnail switch off, and codec choices that don't fit webm are disabled.
 
 ## Artist folders
 
@@ -40,7 +41,7 @@ Songs are filed into `<Music folder>\<Artist>\`.
 1. The artist is detected from the video (YouTube Music metadata, then an "Artist - Title" title, then the channel) and is editable.
 2. If a folder for that artist already exists (any capitalisation/punctuation), it's reused; otherwise it's created.
 3. To send an artist somewhere specific, change the **Folder** field (e.g. `aath`) and leave "Remember" on. Future downloads by that artist go there automatically.
-   Manage the list under Settings -> Artist folders.
+   Manage the list on the Artists tab.
 
 Playlists are expanded into one download per item; the artist is detected per song unless you type one.
 
@@ -49,6 +50,7 @@ Playlists are expanded into one download per item; the artist is detected per so
 - `TubeLoader.pyw` - server, queue, updater (standard library only)
 - `build.bat` - builds the single-file exe
 - `ui/index.html` - the whole interface
+- `ui/fonts/` - IBM Plex Mono, bundled so the app works offline (SIL Open Font License, see `OFL.txt`)
 
 ## Security
 
