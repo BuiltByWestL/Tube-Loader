@@ -17,19 +17,19 @@
 :root {
   --bg: #fff; --fg: #000; --muted: #6f6f6f; --side: #f4f4f4; --btn: #f4f4f4; --btn-hover: #e8e8e8; --line: #e6e6e6;
   --input: #a9a9b0; --elev: #fff; --shadow: 0 8px 32px rgba(0, 0, 0, .14); --ring: inset 0 0 0 1px rgba(0, 0, 0, .05);
-  --on: #000; --on-fg: #fff; --r: 11px;
+  --on: #000; --on-fg: #fff; --brand: #000; --r: 11px;
   --font: "Plex", "Cascadia Mono", Consolas, monospace;
 }
 :root[data-theme="dark"] {
   --bg: #000; --fg: #e6e6e6; --muted: #8d8d8d; --side: #131313; --btn: #191919; --btn-hover: #262626; --line: #232323;
   --input: #3f3f3f; --elev: #131313; --shadow: 0 8px 32px rgba(0, 0, 0, .7); --ring: inset 0 0 0 1px rgba(255, 255, 255, .05);
-  --on: #e1e1e1; --on-fg: #000;
+  --on: #e1e1e1; --on-fg: #000; --brand: #fff;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme="auto"] {
     --bg: #000; --fg: #e6e6e6; --muted: #8d8d8d; --side: #131313; --btn: #191919; --btn-hover: #262626; --line: #232323;
     --input: #3f3f3f; --elev: #131313; --shadow: 0 8px 32px rgba(0, 0, 0, .7); --ring: inset 0 0 0 1px rgba(255, 255, 255, .05);
-    --on: #e1e1e1; --on-fg: #000;
+    --on: #e1e1e1; --on-fg: #000; --brand: #fff;
   }
 }
 
@@ -49,7 +49,9 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 /* sidebar */
 aside { width: 88px; flex: none; background: var(--side); display: flex; flex-direction: column; align-items: stretch; padding: 12px 6px; gap: 4px; }
 .logo { height: 44px; display: grid; place-items: center; margin-bottom: 8px; }
-.logo svg { width: 28px; height: 28px; stroke-width: 2.2; }
+.brand-b, .brand-word { fill: var(--brand); display: block; }
+.brand-b { height: 30px; width: 18px; }
+.brand-word { aspect-ratio: 2186 / 480; }
 .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 2px 8px; border-radius: var(--r); font-size: 11.5px; color: var(--fg); transition: background .12s; }
 .tab:hover { background: var(--btn-hover); }
 .tab.on { background: var(--on); color: var(--on-fg); font-weight: 500; }
@@ -63,7 +65,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 .center.top { justify-content: flex-start; }
 .stack { width: 100%; max-width: 640px; }
 .hero { display: flex; justify-content: center; margin-bottom: 26px; }
-.hero svg { width: 92px; height: 92px; stroke-width: 1.5; }
+.hero .brand-word { width: min(440px, 86%); }
 .top .hero { display: none; }
 
 .linkbox { position: relative; display: flex; align-items: center; height: 42px; border-radius: var(--r); box-shadow: 0 0 0 2px var(--input) inset; transition: box-shadow .12s; }
@@ -180,9 +182,8 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 .alias { display: grid; grid-template-columns: 1fr 16px 1fr 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
 .alias > span { color: var(--muted); text-align: center; }
 .about p { margin: 0 0 8px; }
-.about .mark { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.about .mark svg { width: 44px; height: 44px; stroke-width: 1.9; }
-.about .mark b { font-size: 20px; font-weight: 600; display: block; line-height: 1.2; }
+.about .mark { margin: 8px 60px 20px 0; }
+.about .mark .brand-word { width: min(280px, 100%); margin-bottom: 8px; }
 
 @media (max-width: 620px) {
   body { flex-direction: column-reverse; }
@@ -198,7 +199,8 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-  <symbol id="i-mark" viewBox="0 0 24 24"><path d="m5 5 7 6.5L19 5M5 12.5l7 6.5 7-6.5"/></symbol>
+  <symbol id="l-b" viewBox="0 0 57.75 100"><path d="M0 0L0 66.5L57.6 33.2ZM33.2 52.5L0 71.7L0 100L57.7 66.7Z"/></symbol>
+  <symbol id="l-word" viewBox="827 839 2186 480"><path d="m968.9 1245h-72.2v-292h-69.4v-61.7h210.8v61.7h-69.2zm174.2 5.1q-35.4 0-61-14.1-25.3-14.7-39-41.7-13.6-27.3-13.6-65.8v-237.2h72.2v236.9q0 19.4 4.6 32.5 5 12.8 14.3 19.6 9.2 6.4 22.5 6.4 13.3 0 22.6-6.4 9.3-6.8 13.9-19.6 5.1-13.1 5.1-32.5v-236.9h72.1v237.2q0 38.4-13.7 65.8-13.5 27-39.2 41.7-25.3 14.1-60.8 14.1zm606.3-5.1h-181.4v-353.7h181.4v61.8h-109.2v84.5h103.4v57.5h-103.4v88.2h109.2zm178 0h-177.5v-353.8h72.3v292h105.2zm99.3 5.1q-40.1 0-67.6-20.6-27.3-20.8-41.4-61.2-13.9-40.5-13.9-99.7v-0.7q0-58.9 13.9-99.2 14.1-40.6 41.4-61.5 27.5-21 67.6-21 40.1 0 67.3 21 27.5 20.7 41.4 61.3 14.2 40.5 14.2 99.4v0.7q0 59.2-14.2 99.9-13.9 40.3-41.4 61-27.2 20.6-67.3 20.6zm0-63.5q16.2 0 27.1-12.2 11-12.7 16.4-38.7 5.7-26.2 5.7-67.1v-0.7q0-40.7-5.7-66.8-5.4-26.3-16.4-38.8-11-12.6-27.1-12.6-16 0-27.1 12.6-10.9 12.6-16.7 38.8-5.4 26.1-5.4 66.8v0.7q0 41 5.4 67.3 5.8 25.8 16.7 38.5 10.9 12.2 27.1 12.2zm171.3 58.4h-74.2l81-353.7h70.2v75.9h-24.6zm128.3-73.1h-150.6l11.6-55.9h127.4zm52.1 73.1h-74.3l-52.5-277.8v-75.9h45.6zm91.1 0h-99.7v-353.8h99.7q44.4 0 74.6 19.2 30.6 18.8 46.1 57.8 15.6 38.7 15.6 98.4v0.6q0 59.5-15.9 99.1-15.4 39.4-45.8 59.1-30.2 19.6-74.6 19.6zm-27.3-291.8v229.9h19q23.3 0 39-11.2 16-11.4 23.8-36.7 8.3-25.7 8.3-68v-0.6q0-41.3-8.3-66-8-25.1-24-36.1-15.6-11.3-38.8-11.3zm345.2 291.8h-181.4v-353.8h181.4v61.8h-109.2v84.5h103.3v57.5h-103.3v88.2h109.2zm72.8 0h-72.2v-353.7h110.5q35.7 0 59.5 12.5 23.7 12.3 35.5 36.5 11.9 24.2 11.9 59.2v0.5q0 34.5-12.9 59.9-12.4 25.4-35.3 37.3l55 147.8h-76.7l-46.9-133.1q-1.7 0-3.7 0.2-1.5-0.2-3.1-0.2h-21.6zm0-295.9v109.6h28.5q21.8 0 32.2-13.2 10.7-13.4 10.7-41.4v-0.5q0-27.8-10.9-41-10.5-13.5-31.7-13.5z"/><path d="M1281.1 840L1281.1 1157.9L1556.3 998.8ZM1439.7 1091L1281 1182.6L1281.1 1318L1557 1158.7Z"/></symbol>
   <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>
   <symbol id="i-artists" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
@@ -217,7 +219,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 </defs></svg>
 
 <aside>
-  <div class="logo" title="Tube Loader"><svg class="i"><use href="#i-mark"/></svg></div>
+  <div class="logo" title="Tube Loader"><svg class="brand-b" role="img" aria-label="Tube Loader"><use href="#l-b"/></svg></div>
   <button class="tab on" data-page="save"><svg class="i"><use href="#i-save"/></svg>save</button>
   <button class="tab" data-page="artists"><svg class="i"><use href="#i-artists"/></svg>artists</button>
   <div class="spacer"></div>
@@ -239,7 +241,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
   <section class="page" data-page="save">
     <div class="center" id="center">
       <div class="stack">
-        <div class="hero"><svg class="i"><use href="#i-mark"/></svg></div>
+        <div class="hero"><svg class="brand-word" role="img" aria-label="Tube Loader"><use href="#l-word"/></svg></div>
         <div class="linkbox" id="linkbox">
           <span class="lead" id="lead"><svg class="i"><use href="#i-link"/></svg></span>
           <input id="url" placeholder="paste the link here" aria-label="Video link" autofocus spellcheck="false" autocomplete="off">
@@ -306,7 +308,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
   </div></section>
 
   <section class="page" data-page="about" hidden><div class="doc about">
-    <div class="mark" style="padding-right:50px"><svg class="i"><use href="#i-mark"/></svg><div><b>tube loader</b><span class="sub" id="aboutVer"></span></div></div>
+    <div class="mark"><svg class="brand-word" role="img" aria-label="Tube Loader"><use href="#l-word"/></svg><span class="sub" id="aboutVer"></span></div>
     <div class="group">
       <h2>how it works</h2>
       <p>paste a link, pick a mode, download. everything runs on this computer: nothing goes through a server, and there are no accounts or tracking.</p>

@@ -1,4 +1,9 @@
-# Tube Loader
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-white.svg">
+    <img src="assets/logo-black.svg" alt="Tube Loader" width="440">
+  </picture>
+</h1>
 
 A small, fast, local YouTube downloader. A black-and-white front-end for [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 that runs on your machine as a single `.exe` with nothing to install, and keeps its own tools up to date.
@@ -50,6 +55,7 @@ Playlists are expanded into one download per item; the artist is detected per so
 - `TubeLoader.pyw` - server, queue, updater (standard library only)
 - `build.bat` - builds the single-file exe
 - `ui/index.html` - the whole interface
+- `assets/` - the logo, in black and white, full and small (B)
 - `ui/fonts/` - IBM Plex Mono, bundled so the app works offline (SIL Open Font License, see `OFL.txt`)
 
 ## Security
