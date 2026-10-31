@@ -112,3 +112,7 @@ The app itself uses only the Python standard library plus pywebview. The server 
 Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org). Set in [IBM Plex Mono](https://github.com/IBM/plex) ([SIL Open Font License](ui/fonts/OFL.txt)). Look inspired by [cobalt](https://cobalt.tools).
 
 Please only download content you have the right to save.
+
+## License
+
+[MIT](LICENSE). IBM Plex Mono is under the [SIL Open Font License](ui/fonts/OFL.txt), and yt-dlp, ffmpeg and Deno keep their own licenses.
