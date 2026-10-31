@@ -15,6 +15,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -24,9 +25,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+FROZEN = getattr(sys, "frozen", False)  # running as the packaged TubeLoader.exe
 APP = Path(__file__).resolve().parent
-UI_DIR, BIN, DATA = APP / "ui", APP / "bin", APP / "data"
-YTDLP = BIN / "yt-dlp.exe"
+BUNDLE = Path(getattr(sys, "_MEIPASS", APP))  # where the UI files live
+HOME = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "TubeLoader" if FROZEN else APP  # writable data
+UI_DIR, BIN, DATA = BUNDLE / "ui", HOME / "bin", HOME / "data"
+LOCAL_YTDLP = BIN / "yt-dlp.exe"
+YTDLP = LOCAL_YTDLP  # re-pointed by locate_ytdlp() when a copy already exists on the system
 CONFIG_FILE = DATA / "config.json"
 INSTANCE_FILE = DATA / "instance.json"
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -234,7 +239,8 @@ tools = {
     "js": {"state": "checking", "name": None, "path": None, "msg": "", "pct": None},
 }
 exe_lock = threading.Lock()  # held while a download runs; the updater takes it to swap the exe
-tools_ready = threading.Event()
+tools_ready = threading.Event()  # everything, incl. ffmpeg: downloads wait for this
+core_ready = threading.Event()  # yt-dlp + JS runtime: enough to fetch video info
 update_busy = threading.Event()
 
 
@@ -280,10 +286,28 @@ def local_ytdlp_version() -> str | None:
         return None
 
 
+def locate_ytdlp() -> None:
+    """Our own copy wins, then one already installed on the system; otherwise we download one."""
+    global YTDLP
+    found = None if LOCAL_YTDLP.exists() else shutil.which("yt-dlp")
+    YTDLP = Path(found) if found else LOCAL_YTDLP
+
+
 def update_ytdlp() -> None:
     t = tools["ytdlp"]
     t.update(state="checking", msg="Checking for updates", pct=None)
+    locate_ytdlp()
     t["version"] = local_ytdlp_version()
+    if YTDLP != LOCAL_YTDLP:  # already on this PC: don't install another, just ask it to update itself
+        try:
+            with exe_lock:
+                p = subprocess.run([str(YTDLP), "-U"], capture_output=True, text=True, timeout=180,
+                                   creationflags=NOWIN, stdin=subprocess.DEVNULL)
+            lines = [ln for ln in (p.stdout + p.stderr).splitlines() if ln.strip()]
+            t.update(version=local_ytdlp_version(), state="ok", msg="Using yt-dlp found on this PC" + (f" - {lines[-1][:90]}" if lines else ""))
+        except (OSError, subprocess.SubprocessError) as e:
+            t.update(state="ok", msg=f"Using yt-dlp found on this PC ({e})")
+        return
     try:
         latest = latest_tag("yt-dlp/yt-dlp")
         t["latest"] = latest
@@ -300,7 +324,7 @@ def update_ytdlp() -> None:
             raise RuntimeError("checksum mismatch")
         t["msg"] = "Waiting for current download to finish" if exe_lock.locked() else "Installing"
         with exe_lock:
-            os.replace(tmp, YTDLP)
+            os.replace(tmp, LOCAL_YTDLP)
         t.update(version=local_ytdlp_version(), state="ok", msg="Updated to " + latest, pct=None)
     except Exception as e:  # noqa: BLE001 - surface any failure in the UI, keep the old exe
         t.update(state="ok" if YTDLP.exists() else "missing", pct=None, msg=f"Update failed: {e}")
@@ -387,26 +411,32 @@ def refresh_tools(which: str = "all", force: bool = False) -> None:
         BIN.mkdir(exist_ok=True)
         if which in ("all", "ytdlp"):
             update_ytdlp()
-        if which in ("all", "ffmpeg"):
-            ensure_ffmpeg(force)
         if which in ("all", "js"):
             ensure_js()
+        core_ready.set()
+        if which in ("all", "ffmpeg"):
+            ensure_ffmpeg(force)
     finally:
         update_busy.clear()
+        core_ready.set()
         tools_ready.set()
 
 
 def startup_tools() -> None:
+    locate_ytdlp()
     if not YTDLP.exists() or cfg_snapshot()["auto_update"]:
         refresh_tools()
     else:
+        locate_ytdlp()
         tools["ytdlp"].update(state="ok", version=local_ytdlp_version(), msg="Auto-update is off")
         update_busy.set()
         try:
-            ensure_ffmpeg()
             ensure_js()
+            core_ready.set()
+            ensure_ffmpeg()
         finally:
             update_busy.clear()
+            core_ready.set()
             tools_ready.set()
 
 
@@ -427,8 +457,9 @@ def last_error(text: str) -> str:
 
 
 def fetch_info(url: str) -> dict:
+    core_ready.wait(180)  # first launch: yt-dlp is still being downloaded
     if not YTDLP.exists():
-        raise RuntimeError("yt-dlp isn't installed yet - still downloading it. Try again in a moment.")
+        raise RuntimeError("yt-dlp couldn't be installed - check your internet connection, then Settings -> Check for updates.")
     p = subprocess.run([str(YTDLP), "-J", "--no-playlist", "--flat-playlist", "--no-warnings", *js_args(), "--", url],
                        capture_output=True, timeout=120, creationflags=NOWIN, env=ENV, stdin=subprocess.DEVNULL)
     if p.returncode:
@@ -592,13 +623,30 @@ PORT = 0
 
 
 def pick_folder(initial: str) -> str | None:
-    py = Path(sys.executable).with_name("python.exe")
-    code = ("import sys,tkinter as tk\nfrom tkinter import filedialog\nr=tk.Tk();r.withdraw();r.attributes('-topmost',True)\n"
-            "print(filedialog.askdirectory(initialdir=sys.argv[1],title='Choose a folder',parent=r) or '')")
-    p = subprocess.run([str(py if py.exists() else sys.executable), "-I", "-c", code, initial if Path(initial).is_dir() else str(Path.home())],
-                       capture_output=True, text=True, creationflags=NOWIN, stdin=subprocess.DEVNULL)
-    out = p.stdout.strip()
-    return str(Path(out)) if out else None
+    out = Path(tempfile.gettempdir()) / f"tubeloader_pick_{secrets.token_hex(4)}.txt"
+    start = initial if Path(initial).is_dir() else str(Path.home())
+    if FROZEN:
+        cmd = [sys.executable, "--pick-folder", start, str(out)]
+    else:
+        py = Path(sys.executable).with_name("python.exe")
+        cmd = [str(py if py.exists() else sys.executable), str(Path(__file__).resolve()), "--pick-folder", start, str(out)]
+    subprocess.run(cmd, creationflags=NOWIN, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   env={**ENV, "PYINSTALLER_RESET_ENVIRONMENT": "1"})
+    try:
+        chosen = out.read_text("utf-8").strip()
+    except OSError:
+        chosen = ""
+    out.unlink(missing_ok=True)
+    return str(Path(chosen)) if chosen else None
+
+
+def pick_folder_dialog(initial: str, out: str) -> None:
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    Path(out).write_text(filedialog.askdirectory(initialdir=initial, title="Choose a folder", parent=root) or "", "utf-8")
 
 
 def api_state(_b):
@@ -774,8 +822,10 @@ def watchdog(server: ThreadingHTTPServer) -> None:
 
 
 def main() -> None:
-    DATA.mkdir(exist_ok=True)
-    BIN.mkdir(exist_ok=True)
+    if len(sys.argv) == 4 and sys.argv[1] == "--pick-folder":
+        return pick_folder_dialog(sys.argv[2], sys.argv[3])
+    DATA.mkdir(parents=True, exist_ok=True)
+    BIN.mkdir(parents=True, exist_ok=True)
     if url := existing_instance():
         return open_window(url)
     load_cfg()

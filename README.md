@@ -5,14 +5,23 @@ that runs on your machine, needs no installs beyond Python 3, and keeps its own 
 
 ## Run
 
-Double-click **`TubeLoader.pyw`** (or `Tube Loader.lnk`, which has the icon, once you've created it - see below).
+**`TubeLoader.exe`** is one self-contained file: no Python, yt-dlp or ffmpeg install needed. Put it anywhere and double-click it.
 It opens in its own Edge/Chrome app window and quits when you close the window and nothing is downloading.
 
-On first launch it downloads, from GitHub, into `bin/`:
+On first launch it sets itself up in `%LOCALAPPDATA%\TubeLoaderin`, installing **only what's missing**:
 
-- `yt-dlp.exe` - checked against the release's SHA-256 sums; re-checked for a newer release on every launch
-- `ffmpeg` / `ffprobe` - only if they aren't already on your PATH
-- Deno - only if neither Deno nor Node is available (YouTube extraction needs a JavaScript runtime)
+| Tool | If already on this PC | Otherwise |
+|---|---|---|
+| yt-dlp | used as-is (updated with `yt-dlp -U`) | downloaded from GitHub, checked against the release's SHA-256 sums, re-checked for updates every launch |
+| ffmpeg / ffprobe | used as-is | downloaded (~330 MB unpacked, one time) |
+| JavaScript runtime (YouTube needs one) | Deno or Node used as-is | Deno downloaded |
+
+Settings and remembered artists live in `%LOCALAPPDATA%\TubeLoader\data`.
+
+### Build the exe
+
+`build.bat` -> `dist\TubeLoader.exe` (needs Python 3.9+ and internet on the build machine only; installs PyInstaller).
+You can also run from source with `python TubeLoader.pyw`; it then keeps `bin/` and `data/` next to the script.
 
 ## Modes
 
@@ -38,11 +47,8 @@ Playlists are expanded into one download per item; the artist is detected per so
 ## Files
 
 - `TubeLoader.pyw` - server, queue, updater (standard library only)
+- `build.bat` - builds the single-file exe
 - `ui/index.html` - the whole interface
-- `data/config.json` - your folders and remembered artists (not committed)
-- `bin/` - downloaded tools (not committed)
-
-To make a shortcut with the icon: right-click `TubeLoader.pyw` -> Create shortcut, then set its icon to `icon.ico`.
 
 ## Security
 
