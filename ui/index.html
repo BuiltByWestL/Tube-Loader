@@ -194,7 +194,11 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
   .dest { grid-template-columns: 1fr; }
   .chiprow { grid-template-columns: 1fr; gap: 4px; }
 }
-@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  /* progress indicators keep moving, slowly (looping a .01ms animation made them spin at frame rate) */
+  .spin, .bar.busy b { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+}
 </style>
 </head>
 <body>
@@ -327,7 +331,8 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 <script>
 const TOKEN = "__TOKEN__";
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const PASTE_KEY = /Mac/i.test(navigator.platform) ? "cmd+v" : "ctrl+v";
+const IS_MAC = /Mac/i.test(navigator.platform), SEP = IS_MAC ? "/" : "\\";
+const PASTE_KEY = IS_MAC ? "cmd+v" : "ctrl+v";
 $$(".pastekey").forEach(e => e.textContent = PASTE_KEY);
 async function api(path, body) {
   const r = await fetch("/api/" + path, { method: body === undefined ? "GET" : "POST",
@@ -349,7 +354,7 @@ function ic(name) {
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const pad = n => String(n).padStart(2, "0");
 const fmtDur = s => { if (!s) return ""; const H = Math.floor(s / 3600), M = Math.floor(s % 3600 / 60), R = Math.floor(s % 60); return H ? `${H}:${pad(M)}:${pad(R)}` : `${M}:${pad(R)}`; };
-const home = p => p.replace(/^[A-Za-z]:[\\/]Users[\\/][^\\/]+/, "~");
+const home = p => p.replace(/^([A-Za-z]:)?[\\/]Users[\\/][^\\/]+/, "~");
 
 let cfg = {}, info = null, fetchedUrl = "", folderDirty = false, resolved = null, fetchSeq = 0, resolveSeq = 0;
 const S = { theme: "auto", mode: "song", song: { thumb: true, meta: false }, video: { thumb: false, meta: false },
@@ -458,8 +463,8 @@ async function resolve() {
   $("#folderTag").textContent = !sorted() || !artist ? "" : differs ? "custom" : { alias: "remembered", existing: "exists", new: "new", auto: "" }[r.how];
   $("#rememberRow").hidden = !differs;
   $("#rememberText").textContent = `remember ${artist} → ${f}`;
-  const path = r.root + (sorted() && f ? "\\" + f : "");
-  $("#destPath").textContent = "saves to " + home(path) + (sorted() && !f ? "\\<artist>" : ""); $("#destPath").title = path;
+  const path = r.root + (sorted() && f ? SEP + f : "");
+  $("#destPath").textContent = "saves to " + home(path) + (sorted() && !f ? SEP + "<artist>" : ""); $("#destPath").title = path;
 }
 const resolveSoon = debounce(resolve, 200);
 
@@ -509,8 +514,8 @@ function useLink(text) { $("#url").value = text.trim(); $("#url").oninput(); doF
 $("#url").onpaste = () => setTimeout(() => looksLikeLink($("#url").value) && doFetch(), 0);
 $("#pasteBtn").onclick = async () => {
   try {
-    const t = await navigator.clipboard.readText();
-    if (t.trim()) useLink(t); else showError("your clipboard is empty.");
+    const t = (await api("clipboard", {})).text || "";
+    if (t.trim()) useLink(t); else showError("your clipboard has no text in it.");
   } catch { $("#url").focus(); showError(`press ${PASTE_KEY} to paste your link.`); }
 };
 document.addEventListener("paste", e => {

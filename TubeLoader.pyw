@@ -688,6 +688,41 @@ window_open = threading.Event()
 PORT = 0
 
 
+def read_clipboard() -> str:
+    # Read it natively: the web view's clipboard API asks for permission every session on Windows
+    # and does nothing in the Mac web view.
+    if MAC:
+        r = subprocess.run(["pbpaste"], capture_output=True, timeout=5, stdin=subprocess.DEVNULL,
+                           env={**os.environ, "LANG": "en_US.UTF-8"})
+        return r.stdout.decode("utf-8", "replace")
+    if not WIN:
+        return ""
+    import ctypes
+    from ctypes import wintypes
+    user32, kernel32 = ctypes.WinDLL("user32"), ctypes.WinDLL("kernel32")
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.GetClipboardData.argtypes, user32.GetClipboardData.restype = [wintypes.UINT], wintypes.HANDLE
+    kernel32.GlobalLock.argtypes, kernel32.GlobalLock.restype = [wintypes.HGLOBAL], wintypes.LPVOID
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    for _ in range(10):  # another app may be holding the clipboard for a moment
+        if user32.OpenClipboard(None):
+            break
+        time.sleep(0.05)
+    else:
+        return ""
+    try:
+        handle = user32.GetClipboardData(13)  # CF_UNICODETEXT
+        ptr = kernel32.GlobalLock(handle) if handle else None
+        if not ptr:
+            return ""
+        try:
+            return ctypes.wstring_at(ptr)
+        finally:
+            kernel32.GlobalUnlock(handle)
+    finally:
+        user32.CloseClipboard()
+
+
 def pick_folder(initial: str) -> str | None:
     start = initial if Path(initial).is_dir() else str(Path.home())
     if MAC:
@@ -809,6 +844,7 @@ POST_ROUTES = {
     "clear": api_clear, "retry": api_retry, "remove": api_remove, "reveal": api_reveal, "update": api_update,
     "config": lambda b: update_cfg(b),
     "browse": lambda b: {"path": pick_folder(str(b.get("initial") or ""))},
+    "clipboard": lambda b: {"text": read_clipboard()[:4000]},
     "ping": lambda b: {},
     "bye": lambda b: {},
 }

@@ -115,6 +115,11 @@ def main():
     cfg = api("config", {"music_dir": str(MEDIA / "Music"), "video_dir": str(MEDIA / "Movies")})
     step("settings saved", cfg.get("music_dir") == str(MEDIA / "Music"))
 
+    clip = "https://www.youtube.com/watch?v=jNQXAC9IVRw Björk 音"
+    subprocess.run(["pbcopy"], input=clip.encode(), env={**os.environ, "LANG": "en_US.UTF-8"}, check=True)
+    r = api("clipboard", {})
+    step("paste button reads the clipboard", r.get("text") == clip, json.dumps(r, ensure_ascii=False))
+
     info = first_info(SONG_URLS, "song")
     if not info:
         return
