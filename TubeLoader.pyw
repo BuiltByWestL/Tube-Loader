@@ -46,7 +46,7 @@ YTDLP = LOCAL_YTDLP  # re-pointed by locate_ytdlp() when a copy already exists o
 CONFIG_FILE = DATA / "config.json"
 INSTANCE_FILE = DATA / "instance.json"
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 UA = f"TubeLoader/{VERSION}"
 TOKEN = secrets.token_urlsafe(24)
 if MAC:  # apps opened from Finder get a bare PATH; also look where Homebrew and MacPorts install tools
