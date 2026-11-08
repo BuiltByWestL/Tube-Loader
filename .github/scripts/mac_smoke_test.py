@@ -194,11 +194,18 @@ def main():
             subprocess.run(["pkill", "-9", "-f", "Tube Loader.app/Contents/MacOS"])
             subprocess.run(["pkill", "-9", "-f", "TubeLoader/bin/"])
             time.sleep(2)
+    quit_at = time.time()
 
     # Second launch: tools already there, should be ready almost at once; then a plain quit.
-    subprocess.run(["open", APP], check=True)
+    report["relaunch_gap_s"] = round(time.time() - quit_at, 1)
     t0 = time.time()
+    subprocess.run(["open", APP], check=True)
+    seen = set()
     while time.time() - t0 < 60:
+        for what, ok in (("process", running()), ("instance file", inst.exists())):
+            if ok and what not in seen:
+                seen.add(what)
+                report.setdefault("second_launch", []).append([round(time.time() - t0, 1), what])
         try:
             base = f"http://127.0.0.1:{json.loads(inst.read_text())['port']}/"
             token = re.search(r'const TOKEN = "([^"]+)"', urllib.request.urlopen(base, timeout=3).read().decode())[1]
@@ -206,8 +213,8 @@ def main():
             report.setdefault("second_launch", []).append([round(time.time() - t0, 1), {k: t[k]["msg"] for k in t}])
             if all(t[k]["state"] == "ok" for k in t):
                 break
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            report.setdefault("second_launch", []).append([round(time.time() - t0, 1), f"{type(e).__name__}: {e}"[:120]])
         time.sleep(1)
     step("second launch reuses installed tools", all(t[k]["state"] == "ok" for k in t), f"{time.time() - t0:.0f} s")
     time.sleep(3)
