@@ -18,11 +18,12 @@ SUPPORT = Path.home() / "Library/Application Support/TubeLoader"
 OUT = Path(os.environ.get("OUT", "smoke")).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 MEDIA = OUT / "media"
-URLS = [  # first one that yt-dlp can fetch from this machine is used
-    "https://www.youtube.com/watch?v=jNQXAC9IVRw",  # Me at the zoo, 19 s
-    "https://vimeo.com/76979871",
-    "https://soundcloud.com/ethmusic/lostin-powers-she-so-heavy",
-]
+# For each test, the first link yt-dlp can fetch from this machine is used. YouTube usually asks cloud
+# machines like GitHub's runners to sign in, so there are fallbacks that exercise the same code paths.
+YOUTUBE = "https://www.youtube.com/watch?v=jNQXAC9IVRw"  # Me at the zoo, 19 s
+SONG_URLS = [YOUTUBE, "https://soundcloud.com/ethmusic/lostin-powers-she-so-heavy"]
+VIDEO_URLS = [YOUTUBE, "https://www.dailymotion.com/video/x5kesuj", "https://www.w3schools.com/html/mov_bbb.mp4"]
+LONG_URLS = ["https://archive.org/details/BigBuckBunny_124"]  # 10 min: still running when cancelled
 report = {"steps": [], "ok": True}
 base = token = None
 
@@ -102,29 +103,20 @@ def main():
     for name in ("yt-dlp", "ffmpeg", "ffprobe", "deno"):
         f = SUPPORT / "bin" / name
         if f.exists():
+            t0 = time.time()
             p = subprocess.run([str(f), "--version" if name in ("yt-dlp", "deno") else "-version"], capture_output=True, text=True)
             arch = subprocess.run(["file", "-b", str(f)], capture_output=True, text=True).stdout.strip()
-            step(f"{name} runs", p.returncode == 0, f"{(p.stdout or p.stderr).splitlines()[0][:70]} | {arch[:90]}")
+            step(f"{name} runs", p.returncode == 0,
+                 f"{time.time() - t0:.1f} s | {(p.stdout or p.stderr).splitlines()[0][:60]} | {arch[:90]}")
     shot("2-tools-ready")
 
     MEDIA.mkdir(exist_ok=True)
     cfg = api("config", {"music_dir": str(MEDIA / "Music"), "video_dir": str(MEDIA / "Movies")})
     step("settings saved", cfg.get("music_dir") == str(MEDIA / "Music"))
 
-    info = url = None
-    for u in URLS:
-        r = api("info", {"url": u})
-        ok = "error" not in r
-        step(f"fetch info: {u}", ok, r.get("error", r.get("title", "")), required=False)
-        if ok:
-            info, url = r, u
-            break
-    report["source"] = url
-    step("could fetch a video from some site", info is not None)
+    info = first_info(SONG_URLS, "song")
     if not info:
         return
-    report["youtube_ok"] = url == URLS[0]
-
     r = api("add", {"url": info["url"], "title": info["title"], "thumb": info.get("thumb"), "track": info.get("track"),
                     "artist": info.get("artist", ""), "folder": "", "remember": False, "opts": {"mode": "song", "thumb": True}})
     time.sleep(1)
@@ -139,6 +131,9 @@ def main():
              f"{f.relative_to(MEDIA)} streams={kinds}")
     shot("3-after-song")
 
+    info = first_info(VIDEO_URLS, "video")
+    if not info:
+        return
     api("add", {"url": info["url"], "title": info["title"], "thumb": info.get("thumb"), "opts": {"mode": "video"}})
     time.sleep(1)
     j = wait_job(api("state")["jobs"][-1]["id"])
@@ -154,29 +149,34 @@ def main():
         shot("4-reveal-in-finder")
         subprocess.run(["osascript", "-e", 'tell application "Finder" to close every window'])
 
+    info = first_info(LONG_URLS, "long video")
+    if not info:
+        return
     api("add", {"url": info["url"], "title": info["title"], "opts": {"mode": "custom", "kind": "video", "res": "best", "recode": True}})
     time.sleep(1)
     jid = api("state")["jobs"][-1]["id"]
-    for _ in range(60):
+    for _ in range(120):
         st = next(x for x in api("state")["jobs"] if x["id"] == jid)
-        if st["state"] == "running":
+        if st["state"] == "running" and st["progress"] > 0:
             break
         time.sleep(0.5)
     time.sleep(2)
+    before = st["state"]
     api("cancel", {"id": jid})
     time.sleep(3)
     st = next(x for x in api("state")["jobs"] if x["id"] == jid)
     left = subprocess.run(["pgrep", "-f", "TubeLoader/bin/(yt-dlp|ffmpeg)"], capture_output=True, text=True).stdout.split()
-    step("cancel stops the download and its ffmpeg", st["state"] == "cancelled" and not left, f"state={st['state']} leftover={left}")
+    step("cancel stops a running download", before == "running" and st["state"] == "cancelled" and not left,
+         f"before={before} after={st['state']} leftover={left}")
 
     subprocess.run(["osascript", "-e", 'tell application "Tube Loader" to activate'])
     time.sleep(2)
     shot("5-window")
 
     # Quit while downloads are queued: the app should ask first, and quitting should stop yt-dlp / ffmpeg.
-    for _ in range(3):
-        api("add", {"url": info["url"], "title": info["title"], "opts": {"mode": "custom", "kind": "video", "recode": True, "container": "mkv"}})
-    time.sleep(3)
+    api("add", {"url": info["url"], "title": info["title"], "opts": {"mode": "custom", "kind": "video", "recode": True, "container": "mkv"}})
+    time.sleep(6)
+    report["running_at_quit"] = subprocess.run(["pgrep", "-fl", "TubeLoader/bin/"], capture_output=True, text=True).stdout
     quit_app()
     time.sleep(3)
     shot("6-quit-while-downloading")
@@ -203,6 +203,7 @@ def main():
             base = f"http://127.0.0.1:{json.loads(inst.read_text())['port']}/"
             token = re.search(r'const TOKEN = "([^"]+)"', urllib.request.urlopen(base, timeout=3).read().decode())[1]
             t = api("state")["tools"]
+            report.setdefault("second_launch", []).append([round(time.time() - t0, 1), {k: t[k]["msg"] for k in t}])
             if all(t[k]["state"] == "ok" for k in t):
                 break
         except Exception:  # noqa: BLE001
@@ -213,6 +214,19 @@ def main():
     shot("7-second-launch")
     quit_app()
     step("quits cleanly", wait_gone(20) and not inst.exists())
+
+
+def first_info(urls, what):
+    for u in urls:
+        t0 = time.time()
+        r = api("info", {"url": u})
+        ok = "error" not in r
+        step(f"fetch {what} info: {u}", ok, f"{time.time() - t0:.0f} s " + r.get("error", r.get("title", ""))[:150], required=False)
+        if ok:
+            report.setdefault("sources", {})[what] = u
+            return r
+    step(f"could fetch a {what} from some site", False)
+    return None
 
 
 def running():

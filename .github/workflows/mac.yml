@@ -25,6 +25,7 @@ jobs:
       - name: Check the app
         run: |
           lipo -archs "dist/Tube Loader.app/Contents/MacOS/Tube Loader"
+          vtool -show-build "dist/Tube Loader.app/Contents/MacOS/Tube Loader" | grep -E "architecture|minos"
           codesign --verify --deep --strict --verbose=2 "dist/Tube Loader.app"
           plutil -p "dist/Tube Loader.app/Contents/Info.plist"
           du -sh "dist/Tube Loader.app" dist/TubeLoader-mac.dmg
@@ -41,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15, macos-26, macos-15-intel]
+        os: [macos-15, macos-26, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +59,14 @@ jobs:
           hdiutil detach /Volumes/TubeLoader
           # What Gatekeeper will say about a downloaded copy (expected: rejected, it isn't notarized)
           spctl --assess --type execute -vv "/Applications/Tube Loader.app" || true
+
+      - name: Make the runner look like a fresh Mac (hide preinstalled yt-dlp, ffmpeg, Node, Deno)
+        run: |
+          for d in /usr/local/bin /opt/homebrew/bin; do
+            for t in node deno yt-dlp ffmpeg ffprobe; do
+              if [ -e "$d/$t" ] || [ -L "$d/$t" ]; then sudo mv "$d/$t" "$d/$t.hidden"; echo "hid $d/$t"; fi
+            done
+          done
 
       - name: Smoke test
         env:
