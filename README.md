@@ -40,7 +40,7 @@
 ## Features
 
 - **One file, no setup.** No Python, no yt-dlp, no ffmpeg to install. Tube Loader fetches what it needs on first launch and skips anything you already have.
-- **Always up to date.** Checks for a new yt-dlp every launch, so downloads keep working when YouTube changes.
+- **Always up to date.** Checks for a new yt-dlp every launch, so downloads keep working when YouTube changes. New versions of Tube Loader install from inside the app.
 - **Songs sort themselves.** MP3s with cover art land in a folder named after the artist. If the folder exists, it's reused.
 - **Your folder names stick.** Tell it once that Ax and the Hatchetmen go in `aath`, and every future download goes there.
 - **Full control when you want it.** Pick the format, resolution and codecs, and see the exact yt-dlp command being run.
@@ -85,6 +85,14 @@ Music saves to your Music folder and videos to your Videos folder. You can chang
 Music saves to your Music folder and videos to your Movies folder. You can change both in settings.
 
 > **macOS will block it the first time.** The app isn't notarized by Apple, so macOS says it "could not verify Tube Loader is free of malware". Click **Done**, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Tube Loader, then confirm. You only need to do this once. On macOS 14 and earlier you can instead right-click the app, choose **Open**, then **Open** again.
+
+### Updates
+
+Tube Loader checks for a new version when it starts and offers to update. Updating downloads the new version, checks it against the release's SHA-256, swaps it in and restarts. Turn the check off in **settings → updates**.
+
+The old version isn't deleted. It's renamed, for example to `TubeLoader 1.2.1.exe` or `Tube Loader 1.2.1.app`, and the new version asks whether to move it to the Recycle Bin or Trash, or keep it. It asks the same if you download a newer copy yourself and run it from somewhere else.
+
+If Tube Loader can't replace itself, for example because it's in a folder that needs admin rights, it saves the new version to Downloads instead.
 
 ## Modes
 

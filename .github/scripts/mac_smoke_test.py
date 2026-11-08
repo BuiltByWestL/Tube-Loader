@@ -1,16 +1,21 @@
 """End-to-end check of the installed Mac app, as a user would run it.
 
 Opens /Applications/Tube Loader.app, waits for it to install yt-dlp / ffmpeg / Deno, downloads a song and a
-video through the app's own API, cancels a download, then quits the app. Screenshots and a JSON report
-land in $OUT (default ./smoke). Exit code 0 only if every required step passed.
+video through the app's own API, cancels a download, quits, then lets the app update itself to a fake newer release.
+Screenshots and a JSON report land in $OUT (default ./smoke). Exit code 0 only if every required step passed.
 """
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 APP = "/Applications/Tube Loader.app"
@@ -229,6 +234,90 @@ def main():
     shot("7-second-launch")
     quit_app()
     step("quits cleanly", wait_gone(20) and not inst.exists())
+    time.sleep(2)
+    test_update()
+
+
+def connect(inst, old_port=None, limit=90):
+    """Wait for an app instance (other than the one on old_port) and point the API helpers at it."""
+    global base, token
+    end = time.time() + limit
+    while time.time() < end:
+        try:
+            port = json.loads(inst.read_text())["port"]
+            if port != old_port:
+                html = urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=3).read().decode()
+                base, token = f"http://127.0.0.1:{port}/", re.search(r'const TOKEN = "([^"]+)"', html)[1]
+                return port
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(0.5)
+    return None
+
+
+def test_update():
+    """Serve this same build as a fake 9.9.9 release, let the app update itself, then remove the old copy."""
+    dmg = Path("TubeLoader-mac.dmg").resolve()
+    feed = OUT / "feed"
+    feed.mkdir(exist_ok=True)
+    shutil.copyfile(dmg, feed / dmg.name)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(feed)))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    (feed / "feed.json").write_text(json.dumps({"tag_name": "v9.9.9", "assets": [{
+        "name": dmg.name, "browser_download_url": f"http://127.0.0.1:{port}/{dmg.name}",
+        "digest": "sha256:" + hashlib.sha256(dmg.read_bytes()).hexdigest()}]}))
+    var = f"TUBELOADER_UPDATE_FEED=http://127.0.0.1:{port}/feed.json"
+    if subprocess.run(["open", "--env", var, APP]).returncode != 0:  # older `open` has no --env
+        subprocess.run(["launchctl", "setenv", *var.split("=", 1)])
+        subprocess.run(["open", APP], check=True)
+    inst = SUPPORT / "data/instance.json"
+    first = connect(inst)
+    subprocess.run(["launchctl", "unsetenv", "TUBELOADER_UPDATE_FEED"])
+    if not first:
+        step("app started for the update test", False)
+        return
+    end, s = time.time() + 60, {}
+    while time.time() < end:
+        s = api("state")
+        if s["app"]["state"] in ("available", "current", "error"):
+            break
+        time.sleep(1)
+    version = s.get("version")
+    step("finds the new version", s["app"].get("latest") == "9.9.9" and s["app"]["state"] == "available", json.dumps(s.get("app")))
+    time.sleep(2)
+    shot("8-update-available")
+    old_pids = subprocess.run(["pgrep", "-f", "Tube Loader.app/Contents/MacOS"], capture_output=True, text=True).stdout.split()
+    r = api("update_app", {})
+    trail, new = [], None
+    end = time.time() + 180
+    while time.time() < end and not new:
+        try:
+            trail.append(api("state", timeout=3)["app"]["msg"])
+        except Exception:  # noqa: BLE001 - the old copy has quit
+            pass
+        new = connect(inst, old_port=first, limit=1)
+    old_app = Path(f"/Applications/Tube Loader {version}.app")
+    still = [p for p in old_pids if subprocess.run(["kill", "-0", p], capture_output=True).returncode == 0]
+    step("updates itself and restarts", bool(new) and old_app.exists() and Path(APP).exists() and not still,
+         f"api={r} new_instance={new} old_app={old_app.exists()} old_still_running={still} trail={list(dict.fromkeys(trail))[-4:]}")
+    if not new:
+        shot("update-failed")
+        return
+    sig = subprocess.run(["codesign", "--verify", "--deep", "--strict", APP], capture_output=True, text=True)
+    xattrs = subprocess.run(["xattr", APP], capture_output=True, text=True).stdout.split()
+    step("updated app is signed and not quarantined", sig.returncode == 0 and "com.apple.quarantine" not in xattrs,
+         (sig.stderr.strip() + f" xattrs={xattrs}")[-200:])
+    s = api("state")
+    step("asks about the old version", (s["old_copy"] or {}).get("path") == str(old_app), json.dumps(s["old_copy"]))
+    time.sleep(3)
+    shot("9-old-version-prompt")
+    r = api("old_copy", {"action": "delete"})
+    trashed = Path.home() / ".Trash" / old_app.name
+    step("old version moved to the Trash", not old_app.exists() and trashed.exists() and not api("state")["old_copy"],
+         f"api={r} in_trash={trashed.exists()}")
+    quit_app()
+    step("updated app quits cleanly", wait_gone(20))
 
 
 _sampled = set()

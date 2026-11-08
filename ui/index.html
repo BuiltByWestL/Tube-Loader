@@ -105,6 +105,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 .chip { height: 29px; padding: 0 10px; border-radius: 8px; background: var(--btn); box-shadow: var(--ring); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: background .12s; }
 .chip:hover { background: var(--btn-hover); }
 .chip.on { background: var(--on); color: var(--on-fg); }
+.btn:disabled { opacity: .45; cursor: default; }
 .chip:disabled { opacity: .35; cursor: default; background: var(--btn); color: var(--fg); }
 .chip svg.i { width: 13px; height: 13px; stroke-width: 2.6; }
 
@@ -166,6 +167,11 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 .toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .toast button { flex: none; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
 .toast button:hover { background: rgba(127, 127, 127, .3); }
+.ask .m { display: flex; flex-direction: column; min-width: 0; }
+.ask span { white-space: normal; }
+.ask small { font-size: 11.5px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ask .btns { display: flex; gap: 2px; flex: none; }
+.ask:not([hidden]) ~ .toast { bottom: 104px; }
 
 /* settings-style pages */
 .doc { max-width: 640px; margin: 0 auto; padding: 22px 24px 40px; }
@@ -303,11 +309,15 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
       <div class="pathrow"><span>videos</span><input class="field" id="videoDir" aria-label="Videos folder" spellcheck="false"><button class="btn sm" data-browse="videoDir">browse</button></div>
     </div>
     <div class="group">
+      <h2>updates</h2>
+      <div class="trow"><div>tube loader<small id="tApp"></small></div><button class="btn sm" id="appUpd">check for updates</button></div>
+      <div class="trow"><div>check for updates on launch<small>tube loader and yt-dlp</small></div><button class="chip" id="autoUpd"></button></div>
+    </div>
+    <div class="group">
       <h2>tools</h2>
       <div class="trow"><div>yt-dlp<small id="tYt"></small></div><button class="btn sm" data-upd="ytdlp">check for updates</button></div>
       <div class="trow"><div>ffmpeg<small id="tFf"></small></div></div>
       <div class="trow"><div>javascript runtime<small id="tJs"></small></div></div>
-      <div class="trow"><div>check for yt-dlp updates on launch</div><button class="chip" id="autoUpd"></button></div>
     </div>
   </div></section>
 
@@ -325,6 +335,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
     </div>
   </div></section>
 
+  <div class="toast ask" id="ask" role="alertdialog" aria-labelledby="askText" hidden><div class="m"><span id="askText"></span><small id="askSub" hidden></small></div><div class="btns" id="askBtns"></div></div>
   <div class="toast" id="toast" role="status" hidden><span id="toastText"></span><button id="toastBtn">show</button></div>
 </main>
 
@@ -643,6 +654,41 @@ $$("[data-browse]").forEach(b => b.onclick = async () => {
 });
 $$("[data-upd]").forEach(b => b.onclick = () => { api("update", { what: b.dataset.upd }).then(poll); });
 
+/* ---------- tube loader's own updates ---------- */
+let askKey = "", lastApp = {};
+const dismissed = new Set(), low = t => (t || "").toLowerCase();
+function ask(key, text, sub, buttons) {
+  if (key === askKey) { if (key) $("#askText").textContent = text; return; }
+  askKey = key;
+  if (!key) { $("#ask").hidden = true; return; }
+  $("#askText").textContent = text;
+  $("#askSub").textContent = $("#askSub").title = sub || ""; $("#askSub").hidden = !sub;
+  $("#askBtns").replaceChildren(...buttons.map(([label, fn]) => h("button", { textContent: label, onclick: fn })));
+  $("#ask").hidden = false;
+}
+const updateApp = () => api("update_app", {}).then(poll).catch(e => toast(low(e.message)));
+$("#appUpd").onclick = () => lastApp.state === "available" ? updateApp() : api("check_app", {}).then(poll);
+function renderApp(a, old, trash, version) {
+  lastApp = a;
+  const s = a.state, bin = low(trash), later = key => () => { dismissed.add(key); ask(""); };
+  $("#tApp").textContent = [`version ${version}`, s === "idle" ? "" : low(a.msg) + (a.pct != null ? ` (${a.pct}%)` : "")].filter(Boolean).join(" · ");
+  $("#appUpd").textContent = s === "available" ? `update to ${a.latest}` : "check for updates";
+  $("#appUpd").disabled = ["checking", "downloading", "installing"].includes(s);
+  if (old) {
+    ask("old:" + old.path, `found the old version of tube loader (${old.version}). move it to the ${bin}?`, home(old.path), [
+      [`move to ${bin}`, () => api("old_copy", { action: "delete" }).then(() => { ask(""); toast(`moved to the ${bin}`); poll(); }).catch(e => toast(low(e.message)))],
+      ["keep it", () => api("old_copy", { action: "keep" }).then(() => { ask(""); poll(); })],
+    ]);
+  } else if (s === "downloading" || s === "installing") {
+    ask("busy", low(a.msg) + "…" + (a.pct != null ? ` ${a.pct}%` : ""), "", []);
+  } else if (s === "available" && !dismissed.has("new:" + a.latest)) {
+    ask("new:" + a.latest, `tube loader ${a.latest} is available.`, "", [["update", updateApp], ["later", later("new:" + a.latest)]]);
+  } else if ((s === "error" || s === "manual") && !dismissed.has("msg:" + a.msg)) {
+    ask("msg:" + a.msg, low(a.msg) + ".", "", s === "error"
+      ? [["download page", () => api("open_release", {})], ["close", later("msg:" + a.msg)]] : [["ok", later("msg:" + a.msg)]]);
+  } else ask("");
+}
+
 let rows = [];
 const saveRows = () => saveCfg({ artists: Object.fromEntries(rows.filter(x => x[0] && x[1])) });
 function renderAliases() {
@@ -666,7 +712,7 @@ $("#addAlias").onclick = () => {
 let polling = false;
 async function poll() {
   if (polling) return; polling = true;
-  try { const s = await api("state"); renderTools(s.tools, s.version); renderJobs(s.jobs); } catch {}
+  try { const s = await api("state"); renderTools(s.tools, s.version); renderJobs(s.jobs); renderApp(s.app, s.old_copy, s.trash, s.version); } catch {}
   polling = false;
 }
 setInterval(poll, 800);

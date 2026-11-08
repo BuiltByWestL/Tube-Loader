@@ -46,7 +46,7 @@ YTDLP = LOCAL_YTDLP  # re-pointed by locate_ytdlp() when a copy already exists o
 CONFIG_FILE = DATA / "config.json"
 INSTANCE_FILE = DATA / "instance.json"
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 UA = f"TubeLoader/{VERSION}"
 TOKEN = secrets.token_urlsafe(24)
 if MAC:  # apps opened from Finder get a bare PATH; also look where Homebrew and MacPorts install tools
@@ -281,17 +281,18 @@ core_ready = threading.Event()  # yt-dlp + JS runtime: enough to fetch video inf
 update_busy = threading.Event()
 
 
-def fetch(url: str, dest: Path, key: str | None = None) -> str:
-    """Download url to dest and return the final URL after redirects."""
+def fetch(url: str, dest: Path, key: str | dict | None = None) -> str:
+    """Download url to dest and return the final URL after redirects. key: tool name (or status dict) to show progress on."""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
+    bar = tools[key] if isinstance(key, str) else key
     try:
         with urllib.request.urlopen(req, timeout=30, context=SSL_CTX) as r, open(dest, "wb") as f:
             total, got = int(r.headers.get("Content-Length") or 0), 0
             while chunk := r.read(1 << 17):
                 f.write(chunk)
                 got += len(chunk)
-                if key and total:
-                    tools[key]["pct"] = round(got * 100 / total)
+                if bar is not None and total:
+                    bar["pct"] = round(got * 100 / total)
             return r.geturl()
     except BaseException:
         dest.unlink(missing_ok=True)
@@ -488,6 +489,277 @@ def startup_tools() -> None:
             update_busy.clear()
             core_ready.set()
             tools_ready.set()
+
+
+# ---------------------------------------------------------------- Tube Loader's own updates
+
+REPO = "BuiltByWestL/Tube-Loader"
+RELEASES = f"https://github.com/{REPO}/releases/latest"
+APP_ASSET = "TubeLoader-mac.dmg" if MAC else "TubeLoader.exe"
+BUNDLE_ID = "io.github.builtbywestl.tubeloader"
+INSTALLS_FILE = DATA / "installs.json"  # where this app was last run from, and an old copy waiting for an answer
+# state: idle | checking | current | available | downloading | installing | manual | error
+app_update: dict = {"state": "idle", "latest": None, "msg": "", "pct": None}
+old_copy: dict | None = None  # {"path", "version"}: an older Tube Loader the user hasn't decided about yet
+
+
+def app_path() -> Path | None:
+    """The .exe (Windows) or .app (Mac) this copy runs from. None when running from source."""
+    if not FROZEN:
+        return None
+    p = Path(sys.executable).resolve()
+    if MAC:
+        p = p.parents[2]
+        if p.suffix != ".app" or "/AppTranslocation/" in str(p):  # macOS runs quarantined apps from a random copy
+            return None
+    return p
+
+
+def same_path(a: Path, b: Path) -> bool:
+    return os.path.normcase(str(a)) == os.path.normcase(str(b))
+
+
+def is_tube_loader(p: Path) -> bool:
+    """Only ever offer to remove something that's really a copy of this app."""
+    if MAC:
+        try:
+            import plistlib
+            with open(p / "Contents" / "Info.plist", "rb") as f:
+                return plistlib.load(f).get("CFBundleIdentifier") == BUNDLE_ID
+        except (OSError, ValueError):
+            return False
+    try:
+        return p.is_file() and p.suffix.lower() == ".exe" and b"TubeLoader" in p.read_bytes()[-(8 << 20):]
+    except OSError:
+        return False
+
+
+def release_info() -> dict:
+    # TUBELOADER_UPDATE_FEED lets the tests point the updater at a local copy of the release.
+    feed = os.environ.get("TUBELOADER_UPDATE_FEED", "")
+    url = feed if feed.startswith("http://127.0.0.1:") else f"https://api.github.com/repos/{REPO}/releases/latest"
+    rel = json.loads(fetch_text(url))
+    asset = next((a for a in rel.get("assets", []) if a.get("name") == APP_ASSET), None)
+    if not asset:
+        raise RuntimeError(f"the latest release has no {APP_ASSET}")
+    return {"version": str(rel["tag_name"]).lstrip("v"), "url": asset["browser_download_url"],
+            "sha256": str(asset.get("digest") or "").removeprefix("sha256:").lower()}
+
+
+def check_app(manual: bool = False) -> None:
+    u = app_update
+    if u["state"] in ("checking", "downloading", "installing"):
+        return
+    u.update(state="checking", msg="Checking for updates", pct=None)
+    try:
+        rel = release_info()
+    except Exception as e:  # noqa: BLE001
+        u.update(state="error" if manual else "idle", msg=f"Couldn't check for updates: {e}")
+        return
+    if vkey(rel["version"]) > vkey(VERSION):
+        u.update(state="available", latest=rel["version"], msg=f"Tube Loader {rel['version']} is available", _rel=rel)
+    else:
+        u.update(state="current", latest=rel["version"], msg="Up to date")
+
+
+def unique(p: Path) -> Path:
+    n, q = 2, p
+    while q.exists():
+        q = p.with_name(f"{p.stem} ({n}){p.suffix}")
+        n += 1
+    return q
+
+
+def swap_in_windows(me: Path, new: Path) -> Path:
+    """Put the new exe where this one is. A running exe can be renamed, so this one steps aside."""
+    staged = me.with_name(f"{me.stem}.update{me.suffix}")
+    shutil.copyfile(new, staged)  # fails here, before touching anything, if the folder isn't writable
+    old = unique(me.with_name(f"{me.stem} {VERSION}{me.suffix}"))
+    os.replace(me, old)
+    try:
+        os.replace(staged, me)
+    except OSError:
+        os.replace(old, me)
+        staged.unlink(missing_ok=True)
+        raise
+    return old
+
+
+def swap_in_mac(me: Path, dmg: Path, work: Path) -> Path:
+    mnt = work / "mnt"
+    subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", str(mnt), str(dmg)],
+                   check=True, capture_output=True, timeout=180)
+    staged = me.with_name(f".{me.stem} update.app")
+    shutil.rmtree(staged, ignore_errors=True)
+    try:
+        src = next(mnt.glob("*.app"))
+        subprocess.run(["ditto", str(src), str(staged)], check=True, capture_output=True, timeout=600)
+    finally:
+        subprocess.run(["hdiutil", "detach", "-force", str(mnt)], capture_output=True, timeout=60)
+    try:
+        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(staged)], check=True, capture_output=True, timeout=300)
+        old = unique(me.with_name(f"{me.stem} {VERSION}.app"))
+        os.rename(me, old)
+    except BaseException:
+        shutil.rmtree(staged, ignore_errors=True)
+        raise
+    try:
+        os.rename(staged, me)
+    except OSError:
+        os.rename(old, me)
+        shutil.rmtree(staged, ignore_errors=True)
+        raise
+    return old
+
+
+def write_installs(rec: dict) -> None:
+    try:
+        INSTALLS_FILE.write_text(json.dumps(rec, indent=2), "utf-8")
+    except OSError:
+        pass
+
+
+def relaunch(me: Path) -> None:
+    """Start the new copy and quit. It waits for this process to be gone before it starts its server."""
+    args = ["--after", str(os.getpid())]
+    if MAC:
+        subprocess.Popen(["open", "-n", str(me), "--args", *args])
+    else:
+        # A child of a one-file app inherits its unpack-folder settings: tell the new exe to start fresh
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("_PYI", "_MEI"))}
+        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        subprocess.Popen([str(me), *args], env=env, close_fds=True, stdin=subprocess.DEVNULL,
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+    time.sleep(0.5)
+    quit_now()
+
+
+def install_update() -> None:
+    u, rel, me = app_update, app_update.get("_rel"), app_path()
+    if not rel:
+        return
+    if not me:  # running from source, or a Mac app macOS is running from a quarantined copy
+        webbrowser.open(RELEASES)
+        u.update(state="manual", msg="Opened the download page in your browser")
+        return
+    if not rel["sha256"]:
+        u.update(state="error", msg="The release has no checksum to check the download against")
+        return
+    work = Path(tempfile.mkdtemp(prefix="tubeloader-update-"))
+    try:
+        u.update(state="downloading", msg=f"Downloading Tube Loader {rel['version']}", pct=0)
+        dl = work / APP_ASSET
+        fetch(rel["url"], dl, u)
+        if hashlib.sha256(dl.read_bytes()).hexdigest() != rel["sha256"]:
+            raise RuntimeError("the download didn't match its checksum")
+        if active():
+            raise RuntimeError("downloads started while updating. Try again when they're done")
+        u.update(state="installing", msg=f"Installing Tube Loader {rel['version']}", pct=None)
+        try:
+            old = swap_in_mac(me, dl, work) if MAC else swap_in_windows(me, dl)
+        except (OSError, subprocess.SubprocessError, StopIteration) as e:
+            # Can't replace this copy (e.g. a folder that needs admin rights): hand the new one over instead.
+            saved = unique(Path.home() / "Downloads" / (f"TubeLoader-{rel['version']}-mac.dmg" if MAC else f"TubeLoader {rel['version']}.exe"))
+            saved.parent.mkdir(exist_ok=True)
+            shutil.copyfile(dl, saved)
+            subprocess.Popen(["open", str(saved)] if MAC else ["explorer", "/select,", str(saved)])
+            how = "Open it and drag Tube Loader into Applications" if MAC else "Run it from there"
+            u.update(state="manual", msg=f"Couldn't update in place ({e}). Saved the new version to Downloads. {how}")
+            return
+        write_installs({"path": str(me), "version": rel["version"], "old": {"path": str(old), "version": VERSION}})
+        u.update(msg=f"Restarting into Tube Loader {rel['version']}")
+        relaunch(me)
+    except Exception as e:  # noqa: BLE001
+        u.update(state="error", pct=None, msg=f"Update failed: {e}")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def note_install() -> None:
+    """Remember where this copy runs from. If an older copy was run from somewhere else (an update, or a newer
+    version downloaded by hand), offer to remove it: the user decides, nothing is deleted automatically."""
+    global old_copy
+    me = app_path()
+    if not me:
+        return
+    try:
+        rec = json.loads(INSTALLS_FILE.read_text("utf-8"))
+    except (OSError, ValueError):
+        rec = {}
+    old = rec.get("old") if isinstance(rec.get("old"), dict) else None
+    if not old and rec.get("path") and rec.get("version") and vkey(str(rec["version"])) < vkey(VERSION):
+        old = {"path": str(rec["path"]), "version": str(rec["version"])}
+    if old and (same_path(Path(old["path"]), me) or not is_tube_loader(Path(old["path"]))):
+        old = None
+    old_copy = old
+    write_installs({"path": str(me), "version": VERSION, **({"old": old} if old else {})})
+
+
+def move_to_trash(p: Path) -> None:
+    if MAC:
+        from Foundation import NSFileManager, NSURL
+        ok, _, err = NSFileManager.defaultManager().trashItemAtURL_resultingItemURL_error_(
+            NSURL.fileURLWithPath_(str(p)), None, None)
+        if not ok:
+            raise RuntimeError(str(err.localizedDescription()) if err else "couldn't move it to the Trash")
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+    # FO_DELETE with FOF_ALLOWUNDO (Recycle Bin) | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
+    op = SHFILEOPSTRUCTW(wFunc=3, pFrom=str(p) + "\0", fFlags=0x40 | 0x10 | 0x04 | 0x400)
+    shell32 = ctypes.WinDLL("shell32")
+    shell32.SHFileOperationW.argtypes = [ctypes.POINTER(SHFILEOPSTRUCTW)]
+    rc = shell32.SHFileOperationW(ctypes.byref(op))
+    if rc or op.fAnyOperationsAborted or p.exists():
+        raise RuntimeError(f"couldn't move it to the Recycle Bin (error {rc})")
+
+
+def answer_old_copy(action: str) -> dict:
+    global old_copy
+    old = old_copy
+    if not old:
+        return {}
+    if action == "delete":
+        p = Path(old["path"])
+        if p.exists() and is_tube_loader(p):
+            for attempt in range(10):  # the old copy may still be closing
+                try:
+                    move_to_trash(p)
+                    break
+                except RuntimeError:
+                    if attempt == 9:
+                        raise
+                    time.sleep(0.5)
+    old_copy = None
+    me = app_path()
+    write_installs({"path": str(me), "version": VERSION} if me else {})
+    return {}
+
+
+def wait_for_exit(pid: int, limit: float = 20) -> None:
+    """--after <pid>: the copy being replaced is still shutting down."""
+    if WIN:
+        import ctypes
+        k = ctypes.WinDLL("kernel32")
+        h = k.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if h:
+            k.WaitForSingleObject(h, int(limit * 1000))
+            k.CloseHandle(h)
+        return
+    end = time.time() + limit
+    while time.time() < end:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        except PermissionError:
+            pass
+        time.sleep(0.1)
 
 
 # ---------------------------------------------------------------- yt-dlp info
@@ -769,7 +1041,9 @@ def pick_folder_dialog(initial: str, out: str) -> None:
 
 
 def api_state(_b):
-    return {"tools": tools, "jobs": [public(j) for j in jobs[-200:]], "busy": active(), "version": VERSION}
+    return {"tools": tools, "jobs": [public(j) for j in jobs[-200:]], "busy": active(), "version": VERSION,
+            "app": {k: v for k, v in app_update.items() if not k.startswith("_")}, "old_copy": old_copy,
+            "trash": "Trash" if MAC else "Recycle Bin"}
 
 
 def api_info(b):
@@ -839,12 +1113,35 @@ def api_update(b):
     return {}
 
 
+def api_update_app(_b):
+    if active():
+        raise RuntimeError("Wait for your downloads to finish, then update.")
+    if app_update["state"] != "available":
+        raise RuntimeError("There's no update to install.")
+    threading.Thread(target=install_update, daemon=True).start()
+    return {}
+
+
+def api_check_app(_b):
+    threading.Thread(target=check_app, args=(True,), daemon=True).start()
+    return {}
+
+
+def api_open_release(_b):
+    webbrowser.open(RELEASES)
+    return {}
+
+
 POST_ROUTES = {
     "info": api_info, "resolve": api_resolve, "cmd": api_cmd, "add": api_add, "cancel": api_cancel,
     "clear": api_clear, "retry": api_retry, "remove": api_remove, "reveal": api_reveal, "update": api_update,
     "config": lambda b: update_cfg(b),
     "browse": lambda b: {"path": pick_folder(str(b.get("initial") or ""))},
     "clipboard": lambda b: {"text": read_clipboard()[:4000]},
+    "check_app": api_check_app,
+    "update_app": api_update_app,
+    "old_copy": lambda b: answer_old_copy(str(b.get("action"))),
+    "open_release": api_open_release,
     "ping": lambda b: {},
     "bye": lambda b: {},
 }
@@ -1009,6 +1306,8 @@ def main() -> None:
     global bye_at
     if len(sys.argv) == 4 and sys.argv[1] == "--pick-folder":
         return pick_folder_dialog(sys.argv[2], sys.argv[3])
+    if len(sys.argv) >= 3 and sys.argv[1] == "--after" and sys.argv[2].isdigit():
+        wait_for_exit(int(sys.argv[2]))  # just updated: let the old copy finish quitting
     DATA.mkdir(parents=True, exist_ok=True)
     BIN.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(DATA / "profile", ignore_errors=True)  # Edge profile from versions before the native window
@@ -1016,10 +1315,13 @@ def main() -> None:
         run_window(url)
         return
     load_cfg()
+    note_install()
     server = LocalServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     INSTANCE_FILE.write_text(json.dumps({"port": server.server_address[1]}), "utf-8")
     threading.Thread(target=startup_tools, daemon=True).start()
+    if cfg_snapshot()["auto_update"]:
+        threading.Thread(target=check_app, daemon=True).start()
     threading.Thread(target=worker, daemon=True).start()
     threading.Thread(target=watchdog, args=(server,), daemon=True).start()
     serving = threading.Thread(target=server.serve_forever)
