@@ -74,12 +74,13 @@ def main():
     sig = subprocess.run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", APP], capture_output=True, text=True)
     step("code signature intact", sig.returncode == 0, (sig.stdout + sig.stderr).strip()[-300:])
 
+    t0 = time.time()
     subprocess.run(["open", APP], check=True)
     inst = SUPPORT / "data/instance.json"
-    for _ in range(60):
-        if inst.exists():
-            break
-        time.sleep(1)
+    while time.time() - t0 < 90 and not inst.exists():
+        diagnose(t0, "first")
+        time.sleep(0.5)
+    report["first_launch_s"] = round(time.time() - t0, 1)
     step("app started (local server up)", inst.exists())
     if not inst.exists():
         shot("not-started")
@@ -202,6 +203,8 @@ def main():
     subprocess.run(["open", APP], check=True)
     seen = set()
     while time.time() - t0 < 60:
+        if not inst.exists():
+            diagnose(t0, "second")
         for what, ok in (("process", running()), ("instance file", inst.exists())):
             if ok and what not in seen:
                 seen.add(what)
@@ -221,6 +224,23 @@ def main():
     shot("7-second-launch")
     quit_app()
     step("quits cleanly", wait_gone(20) and not inst.exists())
+
+
+_sampled = set()
+
+
+def diagnose(t0, label):
+    """While the app is slow to start, save what it and the system are busy with (at ~4 s and ~15 s)."""
+    el = time.time() - t0
+    for mark in (4, 15):
+        if el >= mark and (label, mark) not in _sampled:
+            _sampled.add((label, mark))
+            pid = subprocess.run(["pgrep", "-f", "Tube Loader.app/Contents/MacOS"], capture_output=True, text=True).stdout.split()
+            out = OUT / f"diag-{label}-{mark}s.txt"
+            with open(out, "w") as f:
+                f.write(subprocess.run(["ps", "-Ao", "pid,pcpu,etime,comm", "-r"], capture_output=True, text=True).stdout[:4000])
+                if pid:
+                    f.write(subprocess.run(["sample", pid[0], "1"], capture_output=True, text=True).stdout[:60000])
 
 
 def first_info(urls, what):

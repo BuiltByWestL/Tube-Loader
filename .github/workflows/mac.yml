@@ -80,3 +80,4 @@ jobs:
           path: |
             smoke-${{ matrix.os }}/*.png
             smoke-${{ matrix.os }}/report.json
+            smoke-${{ matrix.os }}/diag-*.txt
