@@ -652,7 +652,11 @@ def install_update() -> None:
         fetch(rel["url"], dl, u)
         if hashlib.sha256(dl.read_bytes()).hexdigest() != rel["sha256"]:
             raise RuntimeError("the download didn't match its checksum")
-        if active():
+        if update_busy.is_set():  # don't quit in the middle of installing yt-dlp / ffmpeg / Deno
+            u.update(msg="Waiting for the tools to finish updating", pct=None)
+            while update_busy.is_set():
+                time.sleep(0.5)
+        if downloads_active():
             raise RuntimeError("downloads started while updating. Try again when they're done")
         u.update(state="installing", msg=f"Installing Tube Loader {rel['version']}", pct=None)
         try:
@@ -948,8 +952,12 @@ def retry_job(jid: str) -> None:
         pending.put(j)
 
 
+def downloads_active() -> bool:
+    return any(j["state"] in ("queued", "running") for j in jobs)
+
+
 def active() -> bool:
-    return update_busy.is_set() or any(j["state"] in ("queued", "running") for j in jobs)
+    return update_busy.is_set() or downloads_active()
 
 
 # ---------------------------------------------------------------- HTTP API
@@ -1114,7 +1122,7 @@ def api_update(b):
 
 
 def api_update_app(_b):
-    if active():
+    if downloads_active():
         raise RuntimeError("Wait for your downloads to finish, then update.")
     if app_update["state"] != "available":
         raise RuntimeError("There's no update to install.")
