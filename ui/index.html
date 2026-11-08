@@ -312,7 +312,7 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
     <div class="group">
       <h2>how it works</h2>
       <p>paste a link, pick a mode, download. everything runs on this computer: nothing goes through a server, and there are no accounts or tracking.</p>
-      <p>ctrl+v anywhere pastes a link and fetches it. enter starts the download.</p>
+      <p><span class="pastekey">ctrl+v</span> anywhere pastes a link and fetches it. enter starts the download.</p>
     </div>
     <div class="group">
       <h2>built on</h2>
@@ -327,6 +327,8 @@ main { flex: 1; min-width: 0; position: relative; height: 100%; }
 <script>
 const TOKEN = "__TOKEN__";
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const PASTE_KEY = /Mac/i.test(navigator.platform) ? "cmd+v" : "ctrl+v";
+$$(".pastekey").forEach(e => e.textContent = PASTE_KEY);
 async function api(path, body) {
   const r = await fetch("/api/" + path, { method: body === undefined ? "GET" : "POST",
     headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -509,7 +511,7 @@ $("#pasteBtn").onclick = async () => {
   try {
     const t = await navigator.clipboard.readText();
     if (t.trim()) useLink(t); else showError("your clipboard is empty.");
-  } catch { $("#url").focus(); showError("press ctrl+v to paste your link."); }
+  } catch { $("#url").focus(); showError(`press ${PASTE_KEY} to paste your link.`); }
 };
 document.addEventListener("paste", e => {
   if (e.target.matches?.("input") || $('[data-page="save"].page').hidden) return;

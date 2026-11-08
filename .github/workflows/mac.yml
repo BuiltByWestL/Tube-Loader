@@ -1,0 +1,73 @@
+name: macOS build
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore: ["README.md", "LICENSE", "assets/**"]
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install universal2 Python from python.org
+        run: |
+          curl -fsSLo python.pkg https://www.python.org/ftp/python/3.13.17/python-3.13.17-macos11.pkg
+          sudo installer -pkg python.pkg -target /
+          /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -c "import platform, sys; print(sys.version, platform.machine())"
+
+      - name: Build
+        env:
+          PYTHON: /Library/Frameworks/Python.framework/Versions/3.13/bin/python3
+        run: sh build_mac.sh
+
+      - name: Check the app
+        run: |
+          lipo -archs "dist/Tube Loader.app/Contents/MacOS/Tube Loader"
+          codesign --verify --deep --strict --verbose=2 "dist/Tube Loader.app"
+          plutil -p "dist/Tube Loader.app/Contents/Info.plist"
+          du -sh "dist/Tube Loader.app" dist/TubeLoader-mac.dmg
+          shasum -a 256 dist/TubeLoader-mac.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TubeLoader-mac
+          path: dist/TubeLoader-mac.dmg
+          if-no-files-found: error
+
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-26, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: TubeLoader-mac
+
+      - name: Install from the disk image, like a user would
+        run: |
+          hdiutil attach -nobrowse -mountpoint /Volumes/TubeLoader TubeLoader-mac.dmg
+          ls -la /Volumes/TubeLoader
+          ditto "/Volumes/TubeLoader/Tube Loader.app" "/Applications/Tube Loader.app"
+          hdiutil detach /Volumes/TubeLoader
+          # What Gatekeeper will say about a downloaded copy (expected: rejected, it isn't notarized)
+          spctl --assess --type execute -vv "/Applications/Tube Loader.app" || true
+
+      - name: Smoke test
+        env:
+          OUT: smoke-${{ matrix.os }}
+        run: python3 .github/scripts/mac_smoke_test.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-${{ matrix.os }}
+          path: |
+            smoke-${{ matrix.os }}/*.png
+            smoke-${{ matrix.os }}/report.json

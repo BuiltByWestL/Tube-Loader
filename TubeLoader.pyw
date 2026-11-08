@@ -1,6 +1,6 @@
-"""Tube Loader - a tiny local front-end for yt-dlp. Standard library only.
+"""Tube Loader - a tiny local front-end for yt-dlp. Standard library plus pywebview.
 
-Double-click to run (no console). Starts a loopback-only HTTP server, opens the UI in
+Runs on Windows and macOS. Double-click to run (no console). Starts a loopback-only HTTP server, opens the UI in
 a native window, keeps yt-dlp / ffmpeg up to date from GitHub, and exits
 when the window is closed and nothing is downloading.
 """
@@ -9,10 +9,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import queue
 import re
 import secrets
 import shutil
+import signal
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -25,12 +28,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-FROZEN = getattr(sys, "frozen", False)  # running as the packaged TubeLoader.exe
+FROZEN = getattr(sys, "frozen", False)  # running as the packaged TubeLoader.exe / Tube Loader.app
+WIN, MAC = os.name == "nt", sys.platform == "darwin"
+EXE = ".exe" if WIN else ""
 APP = Path(__file__).resolve().parent
 BUNDLE = Path(getattr(sys, "_MEIPASS", APP))  # where the UI files live
-HOME = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "TubeLoader" if FROZEN else APP  # writable data
+if not FROZEN:
+    HOME = APP  # writable data
+elif MAC:
+    HOME = Path.home() / "Library" / "Application Support" / "TubeLoader"
+else:
+    HOME = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "TubeLoader"
 UI_DIR, BIN, DATA = BUNDLE / "ui", HOME / "bin", HOME / "data"
-LOCAL_YTDLP = BIN / "yt-dlp.exe"
+LOCAL_YTDLP = BIN / ("yt-dlp" + EXE)
 YTDLP = LOCAL_YTDLP  # re-pointed by locate_ytdlp() when a copy already exists on the system
 CONFIG_FILE = DATA / "config.json"
 INSTANCE_FILE = DATA / "instance.json"
@@ -38,16 +48,39 @@ NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 VERSION = "1.1.0"
 UA = f"TubeLoader/{VERSION}"
 TOKEN = secrets.token_urlsafe(24)
+if MAC:  # apps opened from Finder get a bare PATH; also look where Homebrew and MacPorts install tools
+    os.environ["PATH"] = os.pathsep.join([os.environ.get("PATH") or "/usr/bin:/bin:/usr/sbin:/sbin",
+                                          "/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"])
 ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+SSL_CTX = None  # Windows: Python reads the system certificate store
+if MAC:  # the bundled Python can't see the Mac's certificates, so use certifi's
+    try:
+        import certifi
+        SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        pass
 
-FFMPEG_ZIP = "https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"
-DENO_ZIP = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
+if MAC:
+    _ARCH = "arm64" if platform.machine() == "arm64" else "amd64"
+    YTDLP_ASSET = "yt-dlp_macos"  # universal build
+    # Static macOS builds by Martin Riedl; each zip has a .sha256 next to the file the redirect lands on
+    FFMPEG_ZIPS = [f"https://ffmpeg.martin-riedl.de/redirect/latest/macos/{_ARCH}/release/{n}.zip" for n in ("ffmpeg", "ffprobe")]
+    FFMPEG_SUMS = True
+    FFMPEG_SIZE = "~60 MB"
+    DENO_ZIP = ("https://github.com/denoland/deno/releases/latest/download/deno-"
+                + ("aarch64" if _ARCH == "arm64" else "x86_64") + "-apple-darwin.zip")
+else:
+    YTDLP_ASSET = "yt-dlp.exe"
+    FFMPEG_ZIPS = ["https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"]
+    FFMPEG_SUMS = False
+    FFMPEG_SIZE = "~130 MB"
+    DENO_ZIP = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
 
 # ---------------------------------------------------------------- config
 
 DEFAULTS = {
     "music_dir": str(Path.home() / "Music"),
-    "video_dir": str(Path.home() / "Videos"),
+    "video_dir": str(Path.home() / ("Movies" if MAC else "Videos")),
     "auto_update": True,
     "artists": {},  # "Ax and the Hatchetmen" -> "aath"
     "ui": {},
@@ -247,31 +280,38 @@ core_ready = threading.Event()  # yt-dlp + JS runtime: enough to fetch video inf
 update_busy = threading.Event()
 
 
-def fetch(url: str, dest: Path, key: str | None = None) -> None:
+def fetch(url: str, dest: Path, key: str | None = None) -> str:
+    """Download url to dest and return the final URL after redirects."""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     try:
-        with urllib.request.urlopen(req, timeout=30) as r, open(dest, "wb") as f:
+        with urllib.request.urlopen(req, timeout=30, context=SSL_CTX) as r, open(dest, "wb") as f:
             total, got = int(r.headers.get("Content-Length") or 0), 0
             while chunk := r.read(1 << 17):
                 f.write(chunk)
                 got += len(chunk)
                 if key and total:
                     tools[key]["pct"] = round(got * 100 / total)
+            return r.geturl()
     except BaseException:
         dest.unlink(missing_ok=True)
         raise
 
 
 def fetch_text(url: str) -> str:
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30, context=SSL_CTX) as r:
         return r.read().decode("utf-8", "replace")
 
 
 def latest_tag(repo: str) -> str:
     """Latest release tag via the /releases/latest redirect (no API rate limit)."""
     req = urllib.request.Request(f"https://github.com/{repo}/releases/latest", method="HEAD", headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=20) as r:
+    with urllib.request.urlopen(req, timeout=20, context=SSL_CTX) as r:
         return r.geturl().rstrip("/").rsplit("/", 1)[-1]
+
+
+def make_executable(p: Path) -> None:
+    if not WIN:
+        p.chmod(0o755)
 
 
 def vkey(v: str) -> tuple[int, ...]:
@@ -320,11 +360,12 @@ def update_ytdlp() -> None:
         t.update(state="updating", msg="Downloading yt-dlp " + latest, pct=0)
         base = f"https://github.com/yt-dlp/yt-dlp/releases/download/{latest}/"
         tmp = BIN / "yt-dlp.new"
-        fetch(base + "yt-dlp.exe", tmp, "ytdlp")
+        fetch(base + YTDLP_ASSET, tmp, "ytdlp")
         sums = {ln.split()[-1].lstrip("*"): ln.split()[0] for ln in fetch_text(base + "SHA2-256SUMS").splitlines() if ln.strip()}
-        if hashlib.sha256(tmp.read_bytes()).hexdigest() != sums.get("yt-dlp.exe"):
+        if hashlib.sha256(tmp.read_bytes()).hexdigest() != sums.get(YTDLP_ASSET):
             tmp.unlink(missing_ok=True)
             raise RuntimeError("checksum mismatch")
+        make_executable(tmp)
         t["msg"] = "Waiting for current download to finish" if exe_lock.locked() else "Installing"
         with exe_lock:
             os.replace(tmp, LOCAL_YTDLP)
@@ -338,19 +379,23 @@ def ffmpeg_dir() -> Path | None:
     w = shutil.which("ffmpeg")
     if w:
         cands.append(Path(w).parent)
-    return next((d for d in cands if (d / "ffmpeg.exe").exists() and (d / "ffprobe.exe").exists()), None)
+    return next((d for d in cands if (d / f"ffmpeg{EXE}").exists() and (d / f"ffprobe{EXE}").exists()), None)
 
 
-def install_zip_tools(url: str, key: str, wanted: tuple[str, ...]) -> None:
+def install_zip_tools(url: str, key: str, wanted: tuple[str, ...], verify: bool = False) -> None:
+    """Download a zip and unpack only the wanted files into BIN. verify: check <final url>.sha256 first."""
     tmp = BIN / f"{key}.zip"
-    fetch(url, tmp, key)
+    final = fetch(url, tmp, key)
     try:
+        if verify and hashlib.sha256(tmp.read_bytes()).hexdigest() != fetch_text(final + ".sha256").split()[0].lower():
+            raise RuntimeError("checksum mismatch")
         with zipfile.ZipFile(tmp) as z:
             for name in z.namelist():
                 base = name.rsplit("/", 1)[-1]
                 if base.lower() in wanted:
                     with z.open(name) as src, open(BIN / (base + ".new"), "wb") as dst:
                         shutil.copyfileobj(src, dst)
+                    make_executable(BIN / (base + ".new"))
                     os.replace(BIN / (base + ".new"), BIN / base)
     finally:
         tmp.unlink(missing_ok=True)
@@ -360,9 +405,10 @@ def ensure_ffmpeg(force: bool = False) -> None:
     t = tools["ffmpeg"]
     d = None if force else ffmpeg_dir()
     if d is None:
-        t.update(state="updating", msg="Downloading ffmpeg (one-time, ~130 MB)", pct=0)
+        t.update(state="updating", msg=f"Downloading ffmpeg (one-time, {FFMPEG_SIZE})", pct=0)
         try:
-            install_zip_tools(FFMPEG_ZIP, "ffmpeg", ("ffmpeg.exe", "ffprobe.exe"))
+            for url in FFMPEG_ZIPS:
+                install_zip_tools(url, "ffmpeg", (f"ffmpeg{EXE}", f"ffprobe{EXE}"), FFMPEG_SUMS)
         except Exception as e:  # noqa: BLE001
             t.update(state="missing", pct=None, msg=f"ffmpeg download failed: {e}")
             return
@@ -372,7 +418,7 @@ def ensure_ffmpeg(force: bool = False) -> None:
 
 def find_js() -> tuple[str, str] | None:
     for name in ("deno", "node"):
-        local = BIN / f"{name}.exe"
+        local = BIN / f"{name}{EXE}"
         p = str(local) if local.exists() else shutil.which(name)
         if p:
             return name, p
@@ -385,7 +431,7 @@ def ensure_js() -> None:
     if not found:
         t.update(state="updating", msg="Downloading Deno (one-time, for YouTube)", pct=0)
         try:
-            install_zip_tools(DENO_ZIP, "js", ("deno.exe",))
+            install_zip_tools(DENO_ZIP, "js", (f"deno{EXE}",))
         except Exception as e:  # noqa: BLE001
             t.update(state="missing", pct=None, msg=f"Deno download failed: {e}")
             return
@@ -505,7 +551,13 @@ def public(j: dict) -> dict:
 
 
 def kill_tree(proc: subprocess.Popen) -> None:
-    subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=NOWIN)
+    if WIN:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=NOWIN)
+        return
+    try:  # yt-dlp runs in its own process group, so this takes ffmpeg down with it
+        os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
 
 
 def run_job(j: dict) -> None:
@@ -537,7 +589,7 @@ def run_job(j: dict) -> None:
     streams, idx, err = 1, 0, ""
     with exe_lock:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                creationflags=NOWIN, env=ENV)
+                                creationflags=NOWIN, env=ENV, start_new_session=not WIN)
         procs[j["id"]] = proc
         for raw in proc.stdout:
             line = raw.decode("utf-8", "replace").strip()
@@ -636,8 +688,10 @@ PORT = 0
 
 
 def pick_folder(initial: str) -> str | None:
-    out = Path(tempfile.gettempdir()) / f"tubeloader_pick_{secrets.token_hex(4)}.txt"
     start = initial if Path(initial).is_dir() else str(Path.home())
+    if MAC:
+        return pick_folder_mac(start)
+    out = Path(tempfile.gettempdir()) / f"tubeloader_pick_{secrets.token_hex(4)}.txt"
     if FROZEN:
         cmd = [sys.executable, "--pick-folder", start, str(out)]
     else:
@@ -650,6 +704,22 @@ def pick_folder(initial: str) -> str | None:
     except OSError:
         chosen = ""
     out.unlink(missing_ok=True)
+    return str(Path(chosen)) if chosen else None
+
+
+def pick_folder_mac(start: str) -> str | None:
+    """Native folder picker on the app window, or AppleScript's when there's no window (browser fallback)."""
+    try:
+        import webview
+        if webview.windows:
+            got = webview.windows[0].create_file_dialog(webview.FileDialog.FOLDER, directory=start)
+            return str(Path(got[0])) if got else None
+    except Exception:  # noqa: BLE001
+        pass
+    script = ["-e", "on run argv", "-e", 'POSIX path of (choose folder with prompt "Choose a folder" '
+              "default location (POSIX file (item 1 of argv)))", "-e", "end run"]
+    p = subprocess.run(["osascript", *script, start], capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    chosen = p.stdout.strip() if p.returncode == 0 else ""
     return str(Path(chosen)) if chosen else None
 
 
@@ -718,9 +788,12 @@ def api_reveal(b):
     f = Path(j["file"]) if j["file"] else None
     folder = f.parent if f else Path(j.get("_dest") or ".")
     if f and f.exists():
-        subprocess.Popen(["explorer", "/select,", str(f)])
+        subprocess.Popen(["open", "-R", str(f)] if MAC else ["explorer", "/select,", str(f)])
     elif j.get("_dest") and folder.exists():
-        os.startfile(folder)  # type: ignore[attr-defined]
+        if MAC:
+            subprocess.Popen(["open", str(folder)])
+        else:
+            os.startfile(folder)  # type: ignore[attr-defined]
     return {}
 
 
@@ -816,18 +889,53 @@ class Handler(BaseHTTPRequestHandler):
 
 # ---------------------------------------------------------------- launcher
 
-def run_window(url: str) -> None:
-    """Native app window (WebView2), blocking until it's closed. Default browser if that isn't available."""
+def guard_close(win) -> None:
+    """Mac: closing the window quits the app, so ask first while downloads are still going."""
+    while window_open.is_set():
+        win.confirm_close = any(j["state"] in ("queued", "running") for j in jobs)
+        time.sleep(0.5)
+
+
+def watch_app_quit():
+    """Mac: Cmd+Q ends the process without returning from webview.start(), so stop downloads from here too."""
+    try:
+        from AppKit import NSApplicationWillTerminateNotification
+        from Foundation import NSNotificationCenter
+        return NSNotificationCenter.defaultCenter().addObserverForName_object_queue_usingBlock_(
+            NSApplicationWillTerminateNotification, None, None, lambda _note: quit_now())
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def run_window(url: str) -> bool:
+    """Native app window (WebView2 / WebKit), blocking until it's closed. Default browser if that isn't available.
+    Returns True if the native window was used."""
     window_open.set()
     try:
         import webview
-        webview.create_window("Tube Loader", url, width=1040, height=780, min_size=(560, 520))
-        webview.start(gui="edgechromium")
+        win = webview.create_window("Tube Loader", url, width=1040, height=780, min_size=(560, 520))
+        if MAC:
+            threading.Thread(target=guard_close, args=(win,), daemon=True).start()
+            on_quit = watch_app_quit()  # keep a reference so the observer stays alive
+            webview.start(localization={"global.quitConfirmation": "Downloads are still running. Quit and stop them?"})
+        else:
+            webview.start(gui="edgechromium")
     except Exception:  # noqa: BLE001 - no pywebview / no WebView2 runtime
         window_open.clear()
         webbrowser.open(url)
-        return
+        return False
     window_open.clear()
+    return True
+
+
+def quit_now() -> None:
+    """Mac: reopening the app can't bring back a closed window, so closing it quits for real."""
+    for j in list(jobs):
+        j["_cancel"] = True
+    for proc in list(procs.values()):
+        kill_tree(proc)
+    INSTANCE_FILE.unlink(missing_ok=True)
+    os._exit(0)
 
 
 def existing_instance() -> str | None:
@@ -861,7 +969,8 @@ def main() -> None:
     BIN.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(DATA / "profile", ignore_errors=True)  # Edge profile from versions before the native window
     if url := existing_instance():
-        return run_window(url)
+        run_window(url)
+        return
     load_cfg()
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
@@ -871,7 +980,8 @@ def main() -> None:
     threading.Thread(target=watchdog, args=(server,), daemon=True).start()
     serving = threading.Thread(target=server.serve_forever)
     serving.start()
-    run_window(f"http://127.0.0.1:{server.server_address[1]}/")
+    if run_window(f"http://127.0.0.1:{server.server_address[1]}/") and MAC:
+        quit_now()
     if not bye_at:
         bye_at = time.time()  # window closed: finish any downloads, then the watchdog stops the server
     serving.join()
