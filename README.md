@@ -6,7 +6,7 @@
 </h1>
 
 <p align="center">
-  A small, fast YouTube downloader for Windows.<br>
+  A small, fast YouTube downloader for Windows and Mac.<br>
   Paste a link, pick a mode, done. Nothing to install.
 </p>
 
@@ -17,10 +17,17 @@
       <img src="https://img.shields.io/badge/Download-TubeLoader.exe-000000?style=for-the-badge&logo=windows&logoColor=white&labelColor=000000" alt="Download TubeLoader.exe" height="44">
     </picture>
   </a>
+  &nbsp;
+  <a href="https://github.com/BuiltByWestL/Tube-Loader/releases/latest/download/TubeLoader-mac.dmg">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/Download-for_Mac-ffffff?style=for-the-badge&logo=apple&logoColor=black&labelColor=ffffff">
+      <img src="https://img.shields.io/badge/Download-for_Mac-000000?style=for-the-badge&logo=apple&logoColor=white&labelColor=000000" alt="Download for Mac" height="44">
+    </picture>
+  </a>
 </p>
 
 <p align="center">
-  <sub>Windows 10 / 11 · 24 MB · <a href="https://github.com/BuiltByWestL/Tube-Loader/releases">all releases</a></sub>
+  <sub>Windows 10 / 11 · 24 MB &nbsp;|&nbsp; macOS, Apple Silicon and Intel · 26 MB · <a href="https://github.com/BuiltByWestL/Tube-Loader/releases">all releases</a></sub>
 </p>
 
 <p align="center">
@@ -59,6 +66,8 @@
 
 ## Getting started
 
+### Windows
+
 1. [Download `TubeLoader.exe`](https://github.com/BuiltByWestL/Tube-Loader/releases/latest/download/TubeLoader.exe) and put it anywhere.
 2. Double-click it. The first launch takes a moment while it sets up.
 3. Paste a link. Ctrl+V works anywhere in the window, then Enter starts the download.
@@ -66,6 +75,16 @@
 Music saves to your Music folder and videos to your Videos folder. You can change both in settings.
 
 > **Windows may warn you the first time.** The exe isn't code-signed, so SmartScreen can show "Windows protected your PC". Click **More info**, then **Run anyway**. If you'd rather not, you can read the source and build it yourself.
+
+### Mac
+
+1. [Download `TubeLoader-mac.dmg`](https://github.com/BuiltByWestL/Tube-Loader/releases/latest/download/TubeLoader-mac.dmg), open it and drag **Tube Loader** into **Applications**. One download works on both Apple Silicon and Intel Macs.
+2. Open it from Applications. The first launch takes a moment while it sets up.
+3. Paste a link. ⌘V works anywhere in the window, then Return starts the download.
+
+Music saves to your Music folder and videos to your Movies folder. You can change both in settings.
+
+> **macOS will block it the first time.** The app isn't notarized by Apple, so macOS says it "could not verify Tube Loader is free of malware". Click **Done**, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Tube Loader, then confirm. You only need to do this once. On macOS 14 and earlier you can instead right-click the app, choose **Open**, then **Open** again.
 
 ## Modes
 
@@ -79,7 +98,7 @@ Thumbnail and metadata are switches on every mode. Combinations that can't work,
 
 ## Artist folders
 
-Songs go to `<Music folder>\<Artist>\`.
+Songs go to `<Music folder>/<Artist>/`.
 
 1. The artist comes from the video's metadata, then an "Artist - Title" title, then the channel name. You can edit it before downloading.
 2. If a folder for that artist already exists, in any capitalisation, it's reused. Otherwise it's created.
@@ -87,21 +106,23 @@ Songs go to `<Music folder>\<Artist>\`.
 
 ## What it installs
 
-Tools go in `%LOCALAPPDATA%\TubeLoader\bin`, and only if they're missing:
+Tools go in `%LOCALAPPDATA%\TubeLoader\bin` on Windows and `~/Library/Application Support/TubeLoader/bin` on a Mac, and only if they're missing:
 
 | Tool | Already on your PC | Otherwise |
 |---|---|---|
 | yt-dlp | Used as it is, and updated with `yt-dlp -U` | Downloaded from GitHub, checked against the release's SHA-256 sums |
-| ffmpeg and ffprobe | Used as they are | Downloaded once (about 330 MB unpacked) |
+| ffmpeg and ffprobe | Used as they are, including Homebrew's on a Mac | Downloaded once. Windows: about 330 MB unpacked. Mac: [Martin Riedl's static builds](https://ffmpeg.martin-riedl.de), checked against their SHA-256 sums |
 | JavaScript runtime, which YouTube needs | Deno or Node used as it is | Deno downloaded |
 
-Settings and remembered artists live in `%LOCALAPPDATA%\TubeLoader\data`.
+Settings and remembered artists live in the `data` folder next to `bin`.
 
-The window is drawn by WebView2, which comes with Windows 11 and most Windows 10 PCs. The Edge browser and its accounts aren't involved. If WebView2 is missing, Tube Loader opens in your default browser.
+On Windows the window is drawn by WebView2, which comes with Windows 11 and most Windows 10 PCs. The Edge browser and its accounts aren't involved. If WebView2 is missing, Tube Loader opens in your default browser. On a Mac it uses the system's own WebKit, so there's nothing extra to install.
+
+On a Mac, closing the window quits the app. If downloads are still running it asks first, and quitting stops them.
 
 ## Build from source
 
-Run `build.bat` to create `dist\TubeLoader.exe`. It needs Python 3.9+ on the build machine only.
+On Windows, run `build.bat` to create `dist\TubeLoader.exe`. On a Mac, run `sh build_mac.sh` to create `dist/Tube Loader.app` and `dist/TubeLoader-mac.dmg`. Use Python from the [python.org installer](https://www.python.org/downloads/macos/) to get one app for both Apple Silicon and Intel. Either way, Python 3.9+ is only needed on the build machine.
 
 To run without building: `pip install pywebview`, then `python TubeLoader.pyw`.
 
