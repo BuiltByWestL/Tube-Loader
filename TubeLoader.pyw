@@ -15,6 +15,7 @@ import re
 import secrets
 import shutil
 import signal
+import socketserver
 import ssl
 import subprocess
 import sys
@@ -949,6 +950,13 @@ def existing_instance() -> str | None:
     return None
 
 
+class LocalServer(ThreadingHTTPServer):
+    def server_bind(self) -> None:
+        # HTTPServer looks up the machine's name for 127.0.0.1, which can hang for ~30 s on a Mac. We never use it.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "localhost", self.server_address[1]
+
+
 def watchdog(server: ThreadingHTTPServer) -> None:
     """Quit once the window is gone and nothing is left to do."""
     while True:
@@ -972,7 +980,7 @@ def main() -> None:
         run_window(url)
         return
     load_cfg()
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = LocalServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     INSTANCE_FILE.write_text(json.dumps({"port": server.server_address[1]}), "utf-8")
     threading.Thread(target=startup_tools, daemon=True).start()
