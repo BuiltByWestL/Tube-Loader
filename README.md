@@ -7,7 +7,7 @@
 
 <p align="center">
   A small, fast YouTube downloader for Windows and Mac.<br>
-  Paste a link, pick a mode, done. Nothing to install.
+  Paste a link, clickd download, done. Nothing to install.
 </p>
 
 <p align="center">
@@ -39,13 +39,13 @@
 
 ## Features
 
-- **One file, no setup.** No Python, no yt-dlp, no ffmpeg to install. Tube Loader fetches what it needs on first launch and skips anything you already have.
-- **Always up to date.** Checks for a new yt-dlp every launch, so downloads keep working when YouTube changes. New versions of Tube Loader install from inside the app.
+- **One file.** No prereqs to install. Tube Loader fetches what it needs and skips anything you already have.
+- **Always up to date.** Checks for a new yt-dlp and Tube Loader every launch, so downloads keep working when YouTube changes. Updates in-app.
 - **Songs sort themselves.** MP3s with cover art land in a folder named after the artist. If the folder exists, it's reused.
-- **Your folder names stick.** Tell it once that Ax and the Hatchetmen go in `aath`, and every future download goes there.
+- **Your folder names stick.** Tell it once that Tame Impala goes in `ti`, and every future download goes there.
 - **Full control when you want it.** Pick the format, resolution and codecs, and see the exact yt-dlp command being run.
 - **Playlists and a queue.** Paste a playlist and each song is sorted on its own. Cancel, retry and keep going.
-- **Private.** Everything runs on your computer. No accounts, no tracking, no server in the middle.
+- **Private.** Everything runs locally on your computer.
 
 <table>
   <tr>
