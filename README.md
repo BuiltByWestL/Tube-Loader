@@ -46,6 +46,7 @@
 - **Full control when you want it.** Pick the format, resolution and codecs, and see the exact yt-dlp command being run.
 - **Playlists and a queue.** Paste a playlist and each song is sorted on its own. Cancel, retry and keep going.
 - **Private.** Everything runs locally on your computer.
+- **Useful anywhere.** Over 1,700 supported sites, listed at https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
 
 <table>
   <tr>
